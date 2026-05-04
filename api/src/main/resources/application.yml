@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: cyopo-api
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_schema: auth
+  flyway:
+    baseline-on-migrate: true
+    schemas: auth, template, portfolio
+    locations: classpath:db/migration
+
+server:
+  port: 8080
+
+jwt:
+  access-token-expiry: 900
+  refresh-token-expiry: 604800
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

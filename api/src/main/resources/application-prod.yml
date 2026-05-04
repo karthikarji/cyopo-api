@@ -1,0 +1,42 @@
+spring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USER}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+
+cors:
+  allowed-origins: ${ALLOWED_ORIGINS}
+
+jwt:
+  secret: ${JWT_SECRET}
+
+sentry:
+  dsn: ${SENTRY_DSN}
+  traces-sample-rate: 0.2
+  environment: prod
+
+logging:
+  level:
+    com.cyopo: WARN
+    root: ERROR
