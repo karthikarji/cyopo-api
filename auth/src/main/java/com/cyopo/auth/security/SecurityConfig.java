@@ -28,6 +28,8 @@ public class SecurityConfig {
     private final RateLimitFilter rateLimitFilter;
     private final UserDetailsServiceImpl userDetailsService;
     private final CorsConfigurationSource corsConfigurationSource;
+    private final AuthEntryPoint authEntryPoint;
+    private final CustomAccessDeniedHandler accessDeniedHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http)
@@ -52,6 +54,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/user/**")
                         .hasAnyRole("USER", "ADMIN")
                         .anyRequest().authenticated()
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(authEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler)
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(rateLimitFilter,

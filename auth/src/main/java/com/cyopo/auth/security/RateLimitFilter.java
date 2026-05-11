@@ -30,23 +30,30 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
-        String ip = getClientIp(request);
-        String key = "rate_limit:" + ip;
+        try {
+            String ip  = getClientIp(request);
+            String key = "rate_limit:" + ip;
 
-        Long count = redisTemplate.opsForValue().increment(key);
+            Long count = redisTemplate.opsForValue().increment(key);
 
-        if (count == 1) {
-            redisTemplate.expire(key, WINDOW);
-        }
+            if (count == 1) {
+                redisTemplate.expire(key, WINDOW);
+            }
 
-        if (count != null && count > MAX_REQUESTS) {
-            log.warn("Rate limit exceeded for IP: {}", ip);
-            response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-            response.setContentType("application/json");
-            response.getWriter().write(
-                    "{\"success\":false,\"error\":\"Too many requests. Please try again later.\"}"
-            );
-            return;
+            if (count != null && count > MAX_REQUESTS) {
+                log.warn("Rate limit exceeded for IP: {}", ip);
+                response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+                response.setContentType("application/json");
+                response.getWriter().write(
+                        "{\"success\":false,\"error\":\"Too many requests.\"}"
+                );
+                return;
+            }
+
+        } catch (Exception ex) {
+            // Redis unavailable — log warning but allow request through
+            // In production Redis must be running
+            log.warn("Rate limiting unavailable (Redis down): {}", ex.getMessage());
         }
 
         filterChain.doFilter(request, response);

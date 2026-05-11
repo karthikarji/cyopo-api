@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>New Contact Message</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f4f4f4;
+             margin: 0; padding: 0;">
+<div style="max-width: 600px; margin: 40px auto; background: #ffffff;
+            border-radius: 8px; overflow: hidden;">
+
+    <div style="background: #1e1e2e; padding: 40px; text-align: center;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 24px;">
+            📬 New Contact Message
+        </h1>
+    </div>
+
+    <div style="padding: 40px;">
+        <p style="color: #666;">
+            You have received a new message via your cyopo portfolio.
+        </p>
+
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 8px 0; color: #999;
+                           width: 120px;">From:</td>
+                <td style="padding: 8px 0; color: #333;">
+                    <span th:text="${senderName}">Name</span>
+                    (<span th:text="${senderEmail}">email</span>)
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #999;">Subject:</td>
+                <td style="padding: 8px 0; color: #333;"
+                    th:text="${subject}">Subject</td>
+            </tr>
+        </table>
+
+        <div style="margin-top: 24px; background: #f8f8f8;
+                    padding: 20px; border-left: 4px solid #6366f1;
+                    border-radius: 4px;">
+            <p style="color: #333; margin: 0; line-height: 1.6;"
+               th:text="${message}">Message content</p>
+        </div>
+
+        <p style="color: #999; font-size: 13px; margin-top: 24px;">
+            Reply directly to this email to respond to
+            <span th:text="${senderName}">the sender</span>.
+        </p>
+    </div>
+
+    <div style="background: #f8f8f8; padding: 20px; text-align: center;">
+        <p style="color: #999; font-size: 12px; margin: 0;">
+            &copy; 2026 cyopo. All rights reserved.
+        </p>
+    </div>
+</div>
+</body>
+</html>

@@ -55,7 +55,7 @@ public class TemplateService {
                         .toList()))
                 .build();
 
-        Template saved = templateRepository.save(template);
+        Template saved = templateRepository.saveAndFlush(template);
         log.info("Template created: {}", saved.getTitle());
         return TemplateResponse.from(saved);
     }
@@ -102,7 +102,7 @@ public class TemplateService {
                     .toList()));
         }
 
-        Template updated = templateRepository.save(template);
+        Template updated = templateRepository.saveAndFlush(template);
         log.info("Template updated: {}", updated.getTitle());
         return TemplateResponse.from(updated);
     }
@@ -146,7 +146,7 @@ public class TemplateService {
                 .tags(new ArrayList<>(original.getTags()))
                 .build();
 
-        Template saved = templateRepository.save(duplicate);
+        Template saved = templateRepository.saveAndFlush(duplicate);
         log.info("Template duplicated: {} → {}",
                 original.getTitle(), saved.getTitle());
         return TemplateResponse.from(saved);
