@@ -32,4 +32,7 @@ public class PortfolioSettings {
 
     @Column(name = "settings_seo_description", length = 160)
     private String seoDescription;
+
+    @Column(name = "settings_show_skill_levels")
+    private Boolean showSkillLevels = true;
 }

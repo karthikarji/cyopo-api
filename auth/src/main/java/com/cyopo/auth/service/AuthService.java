@@ -49,7 +49,7 @@ public class AuthService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .build();
 
-        User saved = userRepository.save(user);
+        User saved = userRepository.saveAndFlush(user);
         log.info("New user registered: {}", saved.getEmail());
 
         // TODO: RabbitMQ - replace with publishing to

@@ -1,6 +1,7 @@
 package com.cyopo.core.service;
 
 import com.cyopo.core.dto.response.AnalyticsResponse;
+import com.cyopo.core.model.Portfolio;
 import com.cyopo.core.model.PortfolioAnalytic;
 import com.cyopo.core.repository.PortfolioAnalyticRepository;
 import com.cyopo.core.repository.PortfolioRepository;
@@ -10,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -59,7 +62,7 @@ public class AnalyticsService {
                 ? portfolioIds
                 : portfolioRepository.findByUserId(userUUID)
                 .stream()
-                .map(p -> p.getId())
+                .map(Portfolio::getId)
                 .toList();
 
         if (ids.isEmpty()) {
@@ -79,17 +82,27 @@ public class AnalyticsService {
         long uniqueVisitors = analyticRepository
                 .countUniqueVisitorsByPortfolioIds(ids);
 
-        // Views by interval
-        String validInterval = List.of(
-                        "day", "week", "month", "year")
+        // Validate interval
+        String validInterval = List.of("day", "week", "month", "year")
                 .contains(interval) ? interval : "day";
 
+        // Convert Instant to LocalDateTime for the query
+        // PostgreSQL TIMESTAMP does not understand Instant directly
+        LocalDateTime start = startDate != null
+                ? LocalDateTime.ofInstant(startDate, ZoneOffset.UTC)
+                : null;
+        LocalDateTime end = endDate != null
+                ? LocalDateTime.ofInstant(endDate, ZoneOffset.UTC)
+                : null;
+
+        // Fix — parameter order matches repository signature:
+        // (interval, portfolioIds, startDate, endDate)
         List<Object[]> rawResults = analyticRepository
                 .getAnalyticsByInterval(
-                        ids.toArray(new UUID[0]),
                         validInterval,
-                        startDate,
-                        endDate
+                        ids.toArray(new UUID[0]),
+                        start,
+                        end
                 );
 
         List<AnalyticsResponse.ViewsByPeriod> viewsByPeriod =
@@ -98,8 +111,7 @@ public class AnalyticsService {
                                 .builder()
                                 .period(row[0].toString())
                                 .views(((Number) row[1]).longValue())
-                                .uniqueVisitors(
-                                        ((Number) row[2]).longValue())
+                                .uniqueVisitors(((Number) row[2]).longValue())
                                 .build())
                         .toList();
 

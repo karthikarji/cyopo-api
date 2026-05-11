@@ -21,6 +21,9 @@ public class CreatePortfolioRequest {
     @NotNull(message = "Template ID is required")
     private UUID templateId;
 
+    @Pattern(regexp = "^[a-z0-9-]+$", message = "Slug must contain only lowercase letters, numbers and hyphens")
+    private String slug;
+
     @Valid
     @NotNull(message = "Profile is required")
     private ProfileRequest profile;
@@ -42,7 +45,6 @@ public class CreatePortfolioRequest {
         @Size(max = 200)
         private String title;
 
-        @NotBlank(message = "Bio is required")
         @Size(max = 1000)
         private String bio;
 
@@ -131,6 +133,7 @@ public class CreatePortfolioRequest {
         private Boolean isPublic = false;
         private Boolean allowComments = true;
         private Boolean showContactInfo = true;
+        private Boolean showSkillLevels = true;
         private String customDomain;
         private String seoTitle;
         private String seoDescription;

@@ -49,8 +49,10 @@ public class PortfolioService {
 
         UUID userUUID = UUID.fromString(userId);
 
-        // Generate unique slug from portfolio name
-        String baseSlug = SlugUtil.generateSlug(request.getName());
+        // Use slug from request if provided, otherwise generate from name
+        String baseSlug = (request.getSlug() != null && !request.getSlug().isBlank())
+                ? request.getSlug()
+                : SlugUtil.generateSlug(request.getName());
         List<String> existingSlugs = portfolioRepository
                 .findSlugsByPrefix(baseSlug);
         String slug = SlugUtil.nextAvailableSlug(baseSlug, existingSlugs);
@@ -80,7 +82,7 @@ public class PortfolioService {
         addExperiences(saved, request.getExperiences());
         addProjects(saved, request.getProjects());
 
-        Portfolio result = portfolioRepository.save(saved);
+        Portfolio result = portfolioRepository.saveAndFlush(saved);
         log.info("Portfolio created: {} for user: {}",
                 result.getSlug(), userId);
         return PortfolioResponse.from(result);
@@ -165,6 +167,17 @@ public class PortfolioService {
             portfolio.setName(
                     SanitizationUtil.sanitize(request.getName()));
         }
+        if (request.getSlug() != null && !request.getSlug().isBlank()) {
+            // Only update slug if it is different and not already taken
+            if (!request.getSlug().equals(portfolio.getSlug())) {
+                boolean slugExists = portfolioRepository.existsBySlugAndIdNot(
+                        request.getSlug(), portfolioId
+                );
+                if (!slugExists) {
+                    portfolio.setSlug(request.getSlug());
+                }
+            }
+        }
         if (request.getTemplateId() != null) {
             portfolio.setTemplateId(request.getTemplateId());
         }
@@ -196,7 +209,7 @@ public class PortfolioService {
             portfolio.setTemplateConfig(request.getTemplateConfig());
         }
 
-        Portfolio updated = portfolioRepository.save(portfolio);
+        Portfolio updated = portfolioRepository.saveAndFlush(portfolio);
         log.info("Portfolio updated: {}", updated.getSlug());
         return PortfolioResponse.from(updated);
     }
@@ -237,7 +250,7 @@ public class PortfolioService {
         }
 
         portfolio.setStatus(request.getStatus());
-        Portfolio updated = portfolioRepository.save(portfolio);
+        Portfolio updated = portfolioRepository.saveAndFlush(portfolio);
         log.info("Portfolio status updated: {} → {}",
                 updated.getSlug(), request.getStatus());
         return PortfolioResponse.from(updated);
@@ -269,21 +282,48 @@ public class PortfolioService {
         String newSlug = SlugUtil.nextAvailableSlug(
                 baseSlug, existingSlugs);
 
+        // Deep copy profile — never share collection instances between entities
+        PortfolioProfile originalProfile = original.getProfile();
+        PortfolioProfile copiedProfile = new PortfolioProfile();
+        copiedProfile.setName(originalProfile.getName());
+        copiedProfile.setTitle(originalProfile.getTitle());
+        copiedProfile.setBio(originalProfile.getBio());
+        copiedProfile.setEmail(originalProfile.getEmail());
+        copiedProfile.setPhone(originalProfile.getPhone());
+        copiedProfile.setLocation(originalProfile.getLocation());
+        copiedProfile.setWebsite(originalProfile.getWebsite());
+        copiedProfile.setProfilePhoto(originalProfile.getProfilePhoto());
+        copiedProfile.setStatus(originalProfile.getStatus());
+        // New ArrayList — do NOT pass original.getSocialMedia() directly
+        copiedProfile.setSocialMedia(new ArrayList<>(
+                originalProfile.getSocialMedia()));
+
+        // Deep copy settings — it has no collections so direct copy is fine
+        PortfolioSettings originalSettings = original.getSettings();
+        PortfolioSettings copiedSettings = PortfolioSettings.builder()
+                .isPublic(originalSettings.getIsPublic())
+                .allowComments(originalSettings.getAllowComments())
+                .showContactInfo(originalSettings.getShowContactInfo())
+                .showSkillLevels(originalSettings.getShowSkillLevels())
+                .customDomain(originalSettings.getCustomDomain())
+                .seoTitle(originalSettings.getSeoTitle())
+                .seoDescription(originalSettings.getSeoDescription())
+                .build();
+
         Portfolio duplicate = Portfolio.builder()
                 .userId(userUUID)
                 .templateId(original.getTemplateId())
                 .name(original.getName() + " (Copy)")
                 .slug(newSlug)
                 .status(PortfolioStatus.DRAFT)
-                .profile(original.getProfile())
-                .settings(original.getSettings())
+                .profile(copiedProfile)
+                .settings(copiedSettings)
                 .skills(new ArrayList<>(original.getSkills()))
-                .certifications(new ArrayList<>(
-                        original.getCertifications()))
+                .certifications(new ArrayList<>(original.getCertifications()))
                 .templateConfig(original.getTemplateConfig())
                 .build();
 
-        Portfolio saved = portfolioRepository.save(duplicate);
+        Portfolio saved = portfolioRepository.saveAndFlush(duplicate);
         log.info("Portfolio duplicated: {} → {}",
                 original.getSlug(), saved.getSlug());
         return PortfolioResponse.from(saved);
@@ -363,6 +403,7 @@ public class PortfolioService {
         profile.setWebsite(req.getWebsite());
         profile.setProfilePhoto(req.getProfilePhoto());
 
+
         if (req.getSocialMedia() != null) {
             profile.setSocialMedia(new ArrayList<>(
                     req.getSocialMedia().stream()
@@ -387,6 +428,8 @@ public class PortfolioService {
                         ? req.getAllowComments() : true)
                 .showContactInfo(req.getShowContactInfo() != null
                         ? req.getShowContactInfo() : true)
+                .showSkillLevels(req.getShowSkillLevels() != null
+                        ? req.getShowSkillLevels() : true)
                 .customDomain(req.getCustomDomain())
                 .seoTitle(req.getSeoTitle())
                 .seoDescription(req.getSeoDescription())
@@ -413,10 +456,10 @@ public class PortfolioService {
                 .map(c -> Certification.builder()
                         .name(c.getName())
                         .provider(c.getProvider())
-                        .issueDate(c.getIssueDate() != null
+                        .issueDate(c.getIssueDate() != null && !c.getIssueDate().isBlank()
                                 ? LocalDate.parse(c.getIssueDate())
                                 : null)
-                        .expiryDate(c.getExpiryDate() != null
+                        .expiryDate(c.getExpiryDate() != null && !c.getExpiryDate().isBlank()
                                 ? LocalDate.parse(c.getExpiryDate())
                                 : null)
                         .credentialId(c.getCredentialId())
@@ -434,19 +477,17 @@ public class PortfolioService {
                     .title(e.getTitle())
                     .company(e.getCompany())
                     .location(e.getLocation())
-                    .startDate(e.getStartDate() != null
+                    .startDate(e.getStartDate() != null && !e.getStartDate().isBlank()
                             ? LocalDate.parse(e.getStartDate())
                             : null)
-                    .endDate(e.getEndDate() != null
+                    .endDate(e.getEndDate() != null && !e.getEndDate().isBlank()
                             ? LocalDate.parse(e.getEndDate())
                             : null)
                     .isCurrent(e.getIsCurrent() != null
                             ? e.getIsCurrent() : false)
                     .description(e.getDescription())
-                    .achievements(new ArrayList<>(
-                            e.getAchievements()))
-                    .technologies(new ArrayList<>(
-                            e.getTechnologies()))
+                    .achievements(new ArrayList<>(e.getAchievements()))
+                    .technologies(new ArrayList<>(e.getTechnologies()))
                     .build();
             portfolio.getExperiences().add(exp);
         });
@@ -465,7 +506,7 @@ public class PortfolioService {
                     .githubUrl(p.getGithubUrl())
                     .isFeatured(p.getIsFeatured() != null
                             ? p.getIsFeatured() : false)
-                    .completedDate(p.getCompletedDate() != null
+                    .completedDate(p.getCompletedDate() != null && !p.getCompletedDate().isBlank()
                             ? LocalDate.parse(p.getCompletedDate())
                             : null)
                     .technologies(new ArrayList<>(

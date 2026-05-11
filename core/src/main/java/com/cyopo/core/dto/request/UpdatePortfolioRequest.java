@@ -9,6 +9,7 @@ import java.util.UUID;
 public class UpdatePortfolioRequest {
 
     private String name;
+    private String slug;
     private UUID templateId;
     private CreatePortfolioRequest.ProfileRequest profile;
     private List<CreatePortfolioRequest.SkillRequest> skills;
