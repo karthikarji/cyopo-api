@@ -101,4 +101,13 @@ public class Portfolio {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    @Column(name = "resume_file_name", length = 255)
+    private String resumeFileName;
+
+    @Column(name = "resume_file_size")
+    private Integer resumeFileSize;
+
+    @Column(name = "template_slug", length = 10)
+    private String templateSlug;
 }

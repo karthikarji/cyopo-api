@@ -207,6 +207,13 @@ public class TemplateService {
         );
     }
 
+    // In template module TemplateService.java
+    public String getTemplateSlug(UUID templateId) {
+        return templateRepository.findById(templateId)
+                .map(Template::getSlug)
+                .orElse(null);
+    }
+
     // ─── Private Helpers ─────────────────────────────────────────────
 
     private Template findTemplateById(UUID id) {

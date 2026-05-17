@@ -1,6 +1,7 @@
 package com.cyopo.core.dto.request;
 
 import com.cyopo.core.model.*;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -76,6 +77,7 @@ public class CreatePortfolioRequest {
     }
 
     @Getter
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class CertificationRequest {
         private String name;
         private String provider;
@@ -86,6 +88,7 @@ public class CreatePortfolioRequest {
     }
 
     @Getter
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ExperienceRequest {
         @NotBlank(message = "Job title is required")
         private String title;
@@ -106,6 +109,7 @@ public class CreatePortfolioRequest {
     }
 
     @Getter
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ProjectRequest {
         @NotBlank(message = "Project title is required")
         private String title;
