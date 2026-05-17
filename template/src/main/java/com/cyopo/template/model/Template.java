@@ -60,6 +60,9 @@ public class Template {
     @Builder.Default
     private List<String> tags = new ArrayList<>();
 
+    @Column(name = "slug", unique = true, length = 10, nullable = false)
+    private String slug;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

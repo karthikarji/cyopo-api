@@ -35,7 +35,7 @@ public class PortfolioProfile {
     @Column(name = "profile_website", length = 500)
     private String website;
 
-    @Column(name = "profile_photo", length = 500)
+    @Column(name = "profile_photo", columnDefinition = "TEXT")
     private String profilePhoto;
 
     @Enumerated(EnumType.STRING)

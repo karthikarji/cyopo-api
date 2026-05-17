@@ -17,6 +17,11 @@ spring:
         write-dates-as-timestamps: false
       deserialization:
         fail-on-unknown-properties: false
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 5MB
+      max-request-size: 10MB
 
 server:
   port: 8080

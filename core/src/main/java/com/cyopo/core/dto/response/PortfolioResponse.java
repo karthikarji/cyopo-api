@@ -12,34 +12,40 @@ import java.util.UUID;
 @Builder
 public class PortfolioResponse {
 
-    private UUID id;
-    private UUID userId;
-    private UUID templateId;
+    private UUID   id;
+    private UUID   userId;
+    private UUID   templateId;
     private String name;
     private String slug;
-    private PortfolioStatus status;
-    private Long viewCount;
+    private PortfolioStatus  status;
+    private Long   viewCount;
     private PortfolioProfile profile;
     private PortfolioSettings settings;
-    private List<Skill> skills;
-    private List<Certification> certifications;
+    private List<Skill>          skills;
+    private List<Certification>  certifications;
     private List<ExperienceResponse> experiences;
-    private List<ProjectResponse> projects;
-    private String templateConfig;
+    private List<ProjectResponse>    projects;
+    private String  templateConfig;
+    private String templateSlug;
+
+    private String  resumeFileName;
+    private Integer resumeFileSize;
+    private boolean hasResume;
+
     private Instant createdAt;
     private Instant updatedAt;
 
     @Getter
     @Builder
     public static class ExperienceResponse {
-        private UUID id;
+        private UUID   id;
         private String title;
         private String company;
         private String location;
         private String startDate;
         private String endDate;
         private Boolean isCurrent;
-        private String description;
+        private String  description;
         private List<String> achievements;
         private List<String> technologies;
     }
@@ -47,15 +53,16 @@ public class PortfolioResponse {
     @Getter
     @Builder
     public static class ProjectResponse {
-        private UUID id;
+        private UUID   id;
         private String title;
         private String description;
         private String thumbnail;
         private String demoUrl;
         private String githubUrl;
         private Boolean isFeatured;
-        private String completedDate;
+        private String  completedDate;
         private List<String> technologies;
+        private String templateSlug;
     }
 
     public static PortfolioResponse from(Portfolio portfolio) {
@@ -71,6 +78,12 @@ public class PortfolioResponse {
                 .settings(portfolio.getSettings())
                 .skills(portfolio.getSkills())
                 .certifications(portfolio.getCertifications())
+
+                // ← Resume fields mapped from portfolio entity
+                .resumeFileName(portfolio.getResumeFileName())
+                .resumeFileSize(portfolio.getResumeFileSize())
+                .hasResume(portfolio.getResumeFileName() != null)
+
                 .experiences(portfolio.getExperiences().stream()
                         .map(e -> ExperienceResponse.builder()
                                 .id(e.getId())
@@ -104,6 +117,7 @@ public class PortfolioResponse {
                                 .technologies(p.getTechnologies())
                                 .build())
                         .toList())
+                .templateSlug(portfolio.getTemplateSlug())
                 .templateConfig(portfolio.getTemplateConfig())
                 .createdAt(portfolio.getCreatedAt())
                 .updatedAt(portfolio.getUpdatedAt())
