@@ -24,6 +24,7 @@ public class PortfolioResponse {
     private List<Skill>          skills;
     private List<Certification>  certifications;
     private List<ExperienceResponse> experiences;
+    private List<EducationResponse> educations;
     private List<ProjectResponse>    projects;
     private String  templateConfig;
     private String templateSlug;
@@ -48,6 +49,21 @@ public class PortfolioResponse {
         private String  description;
         private List<String> achievements;
         private List<String> technologies;
+    }
+
+    @Getter
+    @Builder
+    public static class EducationResponse {
+        private UUID    id;
+        private String  institution;
+        private String  degree;
+        private String  field;
+        private String  startDate;
+        private String  endDate;
+        private Boolean isCurrent;
+        private String  grade;
+        private String  description;
+        private Integer sortOrder;
     }
 
     @Getter
@@ -100,6 +116,20 @@ public class PortfolioResponse {
                                 .description(e.getDescription())
                                 .achievements(e.getAchievements())
                                 .technologies(e.getTechnologies())
+                                .build())
+                        .toList())
+                .educations(portfolio.getEducations().stream()
+                        .map(e -> EducationResponse.builder()
+                                .id(e.getId())
+                                .institution(e.getInstitution())
+                                .degree(e.getDegree())
+                                .field(e.getField())
+                                .startDate(e.getStartDate())
+                                .endDate(e.getEndDate())
+                                .isCurrent(e.getIsCurrent())
+                                .grade(e.getGrade())
+                                .description(e.getDescription())
+                                .sortOrder(e.getSortOrder())
                                 .build())
                         .toList())
                 .projects(portfolio.getProjects().stream()

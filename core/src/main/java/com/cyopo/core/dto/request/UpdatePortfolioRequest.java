@@ -15,6 +15,7 @@ public class UpdatePortfolioRequest {
     private List<CreatePortfolioRequest.SkillRequest> skills;
     private List<CreatePortfolioRequest.CertificationRequest> certifications;
     private List<CreatePortfolioRequest.ExperienceRequest> experiences;
+    private List<CreatePortfolioRequest.EducationRequest> educations;
     private List<CreatePortfolioRequest.ProjectRequest> projects;
     private CreatePortfolioRequest.SettingsRequest settings;
     private String templateConfig;

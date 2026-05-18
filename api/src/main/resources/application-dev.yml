@@ -4,7 +4,6 @@ spring:
     username: postgres
     password: postgres
   jpa:
-    show-sql: true
     hibernate:
       ddl-auto: validate
   flyway:
@@ -42,5 +41,5 @@ sentry:
 
 logging:
   level:
-    com.cyopo: DEBUG
-    org.hibernate.SQL: DEBUG
+#    com.cyopo: DEBUG
+    org.hibernate.SQL: OFF

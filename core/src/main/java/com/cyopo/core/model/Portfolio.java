@@ -110,4 +110,13 @@ public class Portfolio {
 
     @Column(name = "template_slug", length = 10)
     private String templateSlug;
+
+    @OneToMany(
+            mappedBy = "portfolio",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.EAGER
+    )
+    @Builder.Default
+    private List<Education> educations = new ArrayList<>();
 }
