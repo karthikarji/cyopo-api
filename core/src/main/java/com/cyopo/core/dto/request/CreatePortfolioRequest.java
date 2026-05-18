@@ -33,6 +33,7 @@ public class CreatePortfolioRequest {
     private List<CertificationRequest> certifications = new ArrayList<>();
     private List<ExperienceRequest> experiences = new ArrayList<>();
     private List<ProjectRequest> projects = new ArrayList<>();
+    private List<EducationRequest> educations;
     private SettingsRequest settings = new SettingsRequest();
 
     @Getter
@@ -106,6 +107,19 @@ public class CreatePortfolioRequest {
 
         private List<String> achievements = new ArrayList<>();
         private List<String> technologies = new ArrayList<>();
+    }
+
+    @Getter
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class EducationRequest {
+        private String  institution;
+        private String  degree;
+        private String  field;
+        private String  startDate;
+        private String  endDate;
+        private Boolean isCurrent;
+        private String  grade;
+        private String  description;
     }
 
     @Getter

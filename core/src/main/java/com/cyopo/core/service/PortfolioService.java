@@ -84,6 +84,7 @@ public class PortfolioService {
         Portfolio saved = portfolioRepository.save(portfolio);
 
         addExperiences(saved, request.getExperiences());
+        addEducations(saved, request.getEducations());
         addProjects(saved, request.getProjects());
 
         Portfolio result = portfolioRepository.saveAndFlush(saved);
@@ -194,6 +195,10 @@ public class PortfolioService {
         if (request.getExperiences() != null) {
             portfolio.getExperiences().clear();
             addExperiences(portfolio, request.getExperiences());
+        }
+        if (request.getEducations() != null) {
+            portfolio.getEducations().clear();
+            addEducations(portfolio, request.getEducations());
         }
         if (request.getProjects() != null) {
             portfolio.getProjects().clear();
@@ -464,6 +469,27 @@ public class PortfolioService {
                     .build();
             portfolio.getExperiences().add(exp);
         });
+    }
+
+    private void addEducations(Portfolio portfolio,
+                               List<CreatePortfolioRequest.EducationRequest> reqs) {
+        if (reqs == null) return;
+        for (int i = 0; i < reqs.size(); i++) {
+            CreatePortfolioRequest.EducationRequest e = reqs.get(i);
+            Education edu = Education.builder()
+                    .portfolio(portfolio)
+                    .institution(e.getInstitution())
+                    .degree(e.getDegree())
+                    .field(e.getField())
+                    .startDate(e.getStartDate())
+                    .endDate(e.getEndDate())
+                    .isCurrent(e.getIsCurrent() != null ? e.getIsCurrent() : false)
+                    .grade(e.getGrade())
+                    .description(e.getDescription())
+                    .sortOrder(i)
+                    .build();
+            portfolio.getEducations().add(edu);
+        }
     }
 
     private void addProjects(Portfolio portfolio,

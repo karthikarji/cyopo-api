@@ -5,7 +5,8 @@ spring:
     open-in-view: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
+        show_sql: false
         default_schema: auth
   flyway:
     baseline-on-migrate: true
@@ -32,8 +33,13 @@ jwt:
 
 logging:
   level:
-    org.springframework.security: DEBUG
-    org.hibernate.SQL: DEBUG
+    root: WARN
+    com.cyopo: INFO
+    com.cyopo.auth.security.RateLimitFilter: ERROR
+    org.hibernate.SQL: OFF
+    org.hibernate.orm.jdbc.bind: OFF
+    org.hibernate.type.descriptor.sql: OFF
+    org.springframework.web.filter.CommonsRequestLoggingFilter: DEBUG
 
 management:
   endpoints:
