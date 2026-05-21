@@ -72,24 +72,19 @@ public class ResumeController {
     public ResponseEntity<?> downloadResume(
             @PathVariable UUID portfolioId) {
         try {
-            PortfolioResume resume = resumeService.getResume(portfolioId);
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION,
-                            "attachment; filename=\"" + resume.getFileName() + "\"")
-                    .contentType(MediaType.parseMediaType(resume.getMimeType()))
-                    .contentLength(resume.getFileData().length)
-                    .body(resume.getFileData());
+            String url = resumeService.getResumeUrl(portfolioId);
+            return ResponseEntity.status(302)
+                    .header(HttpHeaders.LOCATION, url)
+                    .build();
         } catch (ResourceNotFoundException ex) {
-            log.warn("Resume download failed for portfolio {}: {}",
-                    portfolioId, ex.getMessage());
             return ResponseEntity.status(404)
                     .body(ApiResponse.error(ex.getMessage()));
         } catch (Exception ex) {
-            log.error("Unexpected error downloading resume for portfolio {}: {}",
+            log.error("Error fetching resume URL for portfolio {}: {}",
                     portfolioId, ex.getMessage());
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error(
-                            "An unexpected error occurred. Please try again."));
+                            "An unexpected error occurred."));
         }
     }
 }

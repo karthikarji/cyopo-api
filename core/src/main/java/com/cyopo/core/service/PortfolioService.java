@@ -7,6 +7,9 @@ import com.cyopo.common.exception.ConflictException;
 import com.cyopo.common.exception.PlanUpgradeRequiredException;
 import com.cyopo.common.exception.ResourceNotFoundException;
 import com.cyopo.common.response.PageResponse;
+import com.cyopo.common.storage.StorageFolder;
+import com.cyopo.common.storage.StorageResult;
+import com.cyopo.common.storage.StorageService;
 import com.cyopo.common.util.SlugUtil;
 import com.cyopo.common.util.SanitizationUtil;
 import com.cyopo.core.dto.request.CreatePortfolioRequest;
@@ -28,6 +31,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -42,6 +46,7 @@ public class PortfolioService {
     private final PortfolioRepository portfolioRepository;
     private final UserRepository      userRepository;
     private final TemplateService templateService;
+    private final StorageService storageService;
 
     // ─── Private Helper — resolve template slug ───────────────────────
 
@@ -180,6 +185,14 @@ public class PortfolioService {
                     resolveTemplateSlug(request.getTemplateId()));
         }
         if (request.getProfile() != null) {
+            // Delete old profile photo from Cloudinary if changing
+            String oldPublicId = portfolio.getProfilePhotoPublicId();
+            if (oldPublicId != null
+                    && request.getProfile().getProfilePhoto() != null
+                    && !request.getProfile().getProfilePhoto()
+                    .equals(portfolio.getProfile().getProfilePhoto())) {
+                storageService.delete(oldPublicId);
+            }
             portfolio.setProfile(buildProfile(request.getProfile()));
         }
         if (request.getSettings() != null) {
@@ -512,5 +525,69 @@ public class PortfolioService {
                     .build();
             portfolio.getProjects().add(proj);
         });
+    }
+
+    // ─── Profile Photo ────────────────────────────────────────────────
+
+    @Transactional
+    public String uploadProfilePhoto(String userId, UUID portfolioId,
+                                     MultipartFile file) {
+        Portfolio portfolio = portfolioRepository
+                .findByIdAndUserId(portfolioId, UUID.fromString(userId))
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Portfolio", "id", portfolioId));
+
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("File is required");
+        }
+        if (file.getSize() > 2 * 1024 * 1024) {
+            throw new BadRequestException("File size exceeds 2MB limit");
+        }
+        if (!isImageType(file.getContentType())) {
+            throw new BadRequestException(
+                    "Only image files are allowed (JPG, PNG, WebP, GIF)");
+        }
+
+        // Delete old photo from Cloudinary if exists
+        if (portfolio.getProfilePhotoPublicId() != null) {
+            storageService.delete(portfolio.getProfilePhotoPublicId());
+        }
+
+        StorageResult result = storageService.upload(file, StorageFolder.PROFILES);
+
+        portfolio.getProfile().setProfilePhoto(result.url());
+        portfolio.setProfilePhotoPublicId(result.publicId());
+        portfolioRepository.save(portfolio);
+
+        log.info("Profile photo uploaded for portfolio: {}", portfolioId);
+        return result.url();
+    }
+
+    @Transactional
+    public void deleteProfilePhoto(String userId, UUID portfolioId) {
+        Portfolio portfolio = portfolioRepository
+                .findByIdAndUserId(portfolioId, UUID.fromString(userId))
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Portfolio", "id", portfolioId));
+
+        if (portfolio.getProfilePhotoPublicId() != null) {
+            storageService.delete(portfolio.getProfilePhotoPublicId());
+            portfolio.getProfile().setProfilePhoto(null);
+            portfolio.setProfilePhotoPublicId(null);
+            portfolioRepository.save(portfolio);
+        }
+
+        log.info("Profile photo deleted for portfolio: {}", portfolioId);
+    }
+
+// ─── Private helper ───────────────────────────────────────────────
+
+    private boolean isImageType(String mimeType) {
+        return mimeType != null && (
+                mimeType.equals("image/jpeg") ||
+                        mimeType.equals("image/png")  ||
+                        mimeType.equals("image/webp") ||
+                        mimeType.equals("image/gif")
+        );
     }
 }

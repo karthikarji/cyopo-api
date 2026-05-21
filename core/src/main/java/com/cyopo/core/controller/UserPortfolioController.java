@@ -6,24 +6,27 @@ import com.cyopo.core.dto.request.CreatePortfolioRequest;
 import com.cyopo.core.dto.request.PortfolioStatusRequest;
 import com.cyopo.core.dto.request.UpdatePortfolioRequest;
 import com.cyopo.core.dto.response.PortfolioResponse;
-import com.cyopo.core.dto.response.SlugValidationResponse;
 import com.cyopo.core.model.PortfolioStatus;
 import com.cyopo.core.service.PortfolioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/user/portfolios")
 @RequiredArgsConstructor
 public class UserPortfolioController {
 
-    private final PortfolioService portfolioService;
+    private final PortfolioService portfolioService;  // ← only service, nothing else
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<PortfolioResponse>>>
@@ -34,11 +37,9 @@ public class UserPortfolioController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int limit) {
 
-        PageResponse<PortfolioResponse> response =
+        return ResponseEntity.ok(ApiResponse.success(
                 portfolioService.getUserPortfolios(
-                        userId, status, templateId, page, limit);
-
-        return ResponseEntity.ok(ApiResponse.success(response));
+                        userId, status, templateId, page, limit)));
     }
 
     @PostMapping
@@ -46,13 +47,11 @@ public class UserPortfolioController {
             @AuthenticationPrincipal String userId,
             @Valid @RequestBody CreatePortfolioRequest request) {
 
-        PortfolioResponse response =
-                portfolioService.create(userId, request);
-
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success(
-                        "Portfolio created successfully", response));
+                        "Portfolio created successfully",
+                        portfolioService.create(userId, request)));
     }
 
     @GetMapping("/{id}")
@@ -60,9 +59,8 @@ public class UserPortfolioController {
             @AuthenticationPrincipal String userId,
             @PathVariable UUID id) {
 
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        portfolioService.getById(userId, id)));
+        return ResponseEntity.ok(ApiResponse.success(
+                portfolioService.getById(userId, id)));
     }
 
     @PutMapping("/{id}")
@@ -71,12 +69,9 @@ public class UserPortfolioController {
             @PathVariable UUID id,
             @RequestBody UpdatePortfolioRequest request) {
 
-        PortfolioResponse response =
-                portfolioService.update(userId, id, request);
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        "Portfolio updated successfully", response));
+        return ResponseEntity.ok(ApiResponse.success(
+                "Portfolio updated successfully",
+                portfolioService.update(userId, id, request)));
     }
 
     @DeleteMapping("/{id}")
@@ -95,12 +90,9 @@ public class UserPortfolioController {
             @PathVariable UUID id,
             @Valid @RequestBody PortfolioStatusRequest request) {
 
-        PortfolioResponse response =
-                portfolioService.updateStatus(userId, id, request);
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        "Portfolio status updated", response));
+        return ResponseEntity.ok(ApiResponse.success(
+                "Portfolio status updated",
+                portfolioService.updateStatus(userId, id, request)));
     }
 
     @PatchMapping("/{id}/duplicate")
@@ -108,13 +100,11 @@ public class UserPortfolioController {
             @AuthenticationPrincipal String userId,
             @PathVariable UUID id) {
 
-        PortfolioResponse response =
-                portfolioService.duplicate(userId, id);
-
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success(
-                        "Portfolio duplicated successfully", response));
+                        "Portfolio duplicated successfully",
+                        portfolioService.duplicate(userId, id)));
     }
 
     @GetMapping("/preview/{slug}")
@@ -122,8 +112,40 @@ public class UserPortfolioController {
             @AuthenticationPrincipal String userId,
             @PathVariable String slug) {
 
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        portfolioService.previewBySlug(userId, slug)));
+        return ResponseEntity.ok(ApiResponse.success(
+                portfolioService.previewBySlug(userId, slug)));
+    }
+
+    // ─── Profile Photo ────────────────────────────────────────────────
+
+    @PostMapping("/{portfolioId}/profile-photo")
+    public ResponseEntity<ApiResponse<Map<String, String>>> uploadProfilePhoto(
+            @AuthenticationPrincipal String userId,
+            @PathVariable UUID portfolioId,
+            @RequestParam("file") MultipartFile file) {
+        try {
+            String url = portfolioService.uploadProfilePhoto(
+                    userId, portfolioId, file);
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Profile photo uploaded",
+                    Map.of("url", url)));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(ex.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{portfolioId}/profile-photo")
+    public ResponseEntity<ApiResponse<Void>> deleteProfilePhoto(
+            @AuthenticationPrincipal String userId,
+            @PathVariable UUID portfolioId) {
+        try {
+            portfolioService.deleteProfilePhoto(userId, portfolioId);
+            return ResponseEntity.ok(
+                    ApiResponse.success("Profile photo removed"));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(ex.getMessage()));
+        }
     }
 }

@@ -42,6 +42,9 @@ public class Portfolio {
     @Builder.Default
     private PortfolioStatus status = PortfolioStatus.DRAFT;
 
+    @Column(name = "profile_photo_public_id", length = 255)
+    private String profilePhotoPublicId;
+
     @Column(name = "view_count")
     @Builder.Default
     private Long viewCount = 0L;
