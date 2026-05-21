@@ -32,8 +32,11 @@ public class PortfolioResume {
     @Column(name = "mime_type", nullable = false, length = 100)
     private String mimeType;
 
-    @Column(name = "file_data", nullable = false)
-    private byte[] fileData;
+    @Column(name = "file_url", length = 500)
+    private String fileUrl;
+
+    @Column(name = "cloud_public_id", length = 255)
+    private String cloudPublicId;
 
     @CreationTimestamp
     @Column(name = "uploaded_at", nullable = false, updatable = false)

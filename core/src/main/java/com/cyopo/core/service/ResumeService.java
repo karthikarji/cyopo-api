@@ -2,6 +2,9 @@ package com.cyopo.core.service;
 
 import com.cyopo.common.exception.BadRequestException;
 import com.cyopo.common.exception.ResourceNotFoundException;
+import com.cyopo.common.storage.StorageFolder;
+import com.cyopo.common.storage.StorageResult;
+import com.cyopo.common.storage.StorageService;
 import com.cyopo.core.model.Portfolio;
 import com.cyopo.core.model.PortfolioResume;
 import com.cyopo.core.repository.PortfolioRepository;
@@ -29,9 +32,11 @@ public class ResumeService {
 
     private final PortfolioRepository portfolioRepository;
     private final PortfolioResumeRepository resumeRepository;
+    private final StorageService storageService;
 
     @Transactional
-    public void uploadResume(String userId, UUID portfolioId, MultipartFile file) {
+    public void uploadResume(String userId, UUID portfolioId,
+                             MultipartFile file) {
         Portfolio portfolio = portfolioRepository
                 .findByIdAndUserId(portfolioId, UUID.fromString(userId))
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -44,8 +49,8 @@ public class ResumeService {
             throw new BadRequestException("File size exceeds 5MB limit");
         }
 
-        String  contentType = file.getContentType();
-        boolean validType   = false;
+        String contentType = file.getContentType();
+        boolean validType  = false;
         for (String allowed : ALLOWED_TYPES) {
             if (allowed.equals(contentType)) { validType = true; break; }
         }
@@ -54,29 +59,37 @@ public class ResumeService {
                     "Only PDF and Word documents are allowed");
         }
 
-        resumeRepository.deleteByPortfolioId(portfolioId);
+        // Delete existing from Cloudinary if exists
+        resumeRepository.findByPortfolioId(portfolioId)
+                .ifPresent(existing -> {
+                    storageService.delete(existing.getCloudPublicId());
+                    resumeRepository.delete(existing);
+                    resumeRepository.flush();
+                });
 
-        try {
-            PortfolioResume resume = PortfolioResume.builder()
-                    .portfolioId(portfolioId)
-                    .fileName(file.getOriginalFilename())
-                    .fileSize((int) file.getSize())
-                    .mimeType(contentType)
-                    .fileData(file.getBytes())
-                    .build();
-            resumeRepository.save(resume);
-        } catch (IOException e) {
-            log.error("Failed to read resume file for portfolio {}: {}",
-                    portfolioId, e.getMessage());
-            throw new BadRequestException(
-                    "Failed to read uploaded file. Please try again.");
-        }
+        // Upload to Cloudinary
+        StorageResult result = storageService.upload(
+                file, StorageFolder.RESUMES);
 
+        // Save resume record
+        PortfolioResume resume = PortfolioResume.builder()
+                .portfolioId(portfolioId)
+                .fileName(file.getOriginalFilename())
+                .fileSize((int) file.getSize())
+                .mimeType(contentType)
+                .fileUrl(result.url())
+                .cloudPublicId(result.publicId())
+                .build();
+
+        resumeRepository.save(resume);
+
+        // Update portfolio metadata
         portfolio.setResumeFileName(file.getOriginalFilename());
         portfolio.setResumeFileSize((int) file.getSize());
         portfolioRepository.save(portfolio);
 
-        log.info("Resume uploaded for portfolio: {}", portfolioId);
+        log.info("Resume uploaded to Cloudinary for portfolio: {}",
+                portfolioId);
     }
 
     @Transactional
@@ -86,12 +99,14 @@ public class ResumeService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Portfolio", "id", portfolioId));
 
-        if (!resumeRepository.existsByPortfolioId(portfolioId)) {
-            throw new ResourceNotFoundException(
-                    "Resume", "portfolioId", portfolioId);
-        }
+        PortfolioResume resume = resumeRepository
+                .findByPortfolioId(portfolioId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Resume", "portfolioId", portfolioId));
 
-        resumeRepository.deleteByPortfolioId(portfolioId);
+        // Delete from Cloudinary
+        storageService.delete(resume.getCloudPublicId());
+        resumeRepository.delete(resume);
 
         portfolio.setResumeFileName(null);
         portfolio.setResumeFileSize(null);
@@ -101,8 +116,9 @@ public class ResumeService {
     }
 
     @Transactional(readOnly = true)
-    public PortfolioResume getResume(UUID portfolioId) {
+    public String getResumeUrl(UUID portfolioId) {
         return resumeRepository.findByPortfolioId(portfolioId)
+                .map(PortfolioResume::getFileUrl)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Resume", "portfolioId", portfolioId));
     }

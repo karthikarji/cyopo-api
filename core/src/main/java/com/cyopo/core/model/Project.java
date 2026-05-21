@@ -38,6 +38,9 @@ public class Project {
     private String thumbnail =
             "https://images.unsplash.com/photo-1559311648-d46f5d8593d6";
 
+    @Column(name = "thumbnail_public_id", length = 255)
+    private String thumbnailPublicId;
+
     @Column(name = "demo_url", length = 500)
     private String demoUrl;
 
@@ -55,4 +58,13 @@ public class Project {
     @Column(columnDefinition = "jsonb")
     @Builder.Default
     private List<String> technologies = new ArrayList<>();
+
+    @OneToMany(
+            mappedBy = "project",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.EAGER
+    )
+    @Builder.Default
+    private List<ProjectPhoto> photos = new ArrayList<>();
 }
