@@ -15,6 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @RestController
@@ -52,21 +54,42 @@ public class PublicPortfolioController {
     public ResponseEntity<ApiResponse<Void>> recordView(
             @PathVariable String slug,
             @AuthenticationPrincipal String viewerUserId,
+            @RequestHeader(value = "X-Session-Token", required = false)
+            String sessionToken,
             HttpServletRequest request) {
 
         PortfolioResponse portfolio =
                 portfolioService.getPublicBySlug(slug);
 
+        // Resolve viewer UUID — null for anonymous or "anonymousUser"
+        UUID viewerUUID = null;
+        if (viewerUserId != null
+                && !viewerUserId.equals("anonymousUser")) {
+            try {
+                viewerUUID = UUID.fromString(viewerUserId);
+            } catch (IllegalArgumentException e) {
+                // Not a valid UUID — treat as anonymous
+                viewerUUID = null;
+            }
+        }
+
+        // Skip if owner is viewing their own portfolio
+        if (viewerUUID != null &&
+                viewerUUID.toString().equals(
+                        portfolio.getUserId().toString())) {
+            return ResponseEntity.ok(
+                    ApiResponse.success("View recorded"));
+        }
+
         analyticsService.recordView(
                 portfolio.getId(),
                 portfolio.getUserId(),
-                viewerUserId != null
-                        ? UUID.fromString(viewerUserId) : null,
-                request.getRemoteAddr()
+                viewerUUID,
+                sessionToken,
+                getClientIp(request)
         );
 
-        return ResponseEntity.ok(
-                ApiResponse.success("View recorded"));
+        return ResponseEntity.ok(ApiResponse.success("View recorded"));
     }
 
     @PostMapping("/{slug}/contact")
@@ -90,5 +113,14 @@ public class PublicPortfolioController {
         return ResponseEntity.ok(
                 ApiResponse.success(
                         portfolioService.validateSlug(slug, excludeId)));
+    }
+
+    // Get real IP — checks X-Forwarded-For header first
+    private String getClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isEmpty()) {
+            return forwarded.split(",")[0].trim(); // first IP in chain
+        }
+        return request.getRemoteAddr();
     }
 }

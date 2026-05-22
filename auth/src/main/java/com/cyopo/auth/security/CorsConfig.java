@@ -33,7 +33,8 @@ public class CorsConfig {
                 "X-Requested-With",
                 "Accept",
                 "Origin",
-                "Cache-Control"
+                "Cache-Control",
+                "X-Session-Token"
         ));
         config.setAllowCredentials(true);
         config.setMaxAge(86400L);

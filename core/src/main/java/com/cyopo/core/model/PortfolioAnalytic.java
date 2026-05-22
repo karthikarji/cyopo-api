@@ -32,6 +32,9 @@ public class PortfolioAnalytic {
     @Column(name = "viewer_ip", length = 45)
     private String viewerIp;
 
+    @Column(name = "session_token", length = 36)
+    private String sessionToken;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
