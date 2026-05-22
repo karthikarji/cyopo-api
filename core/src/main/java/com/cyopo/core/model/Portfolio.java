@@ -45,10 +45,6 @@ public class Portfolio {
     @Column(name = "profile_photo_public_id", length = 255)
     private String profilePhotoPublicId;
 
-    @Column(name = "view_count")
-    @Builder.Default
-    private Long viewCount = 0L;
-
     @Embedded
     @Builder.Default
     private PortfolioProfile profile = new PortfolioProfile();

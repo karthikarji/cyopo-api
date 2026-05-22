@@ -18,7 +18,6 @@ public class PortfolioResponse {
     private String name;
     private String slug;
     private PortfolioStatus  status;
-    private Long   viewCount;
     private PortfolioProfile profile;
     private PortfolioSettings settings;
     private List<Skill>          skills;
@@ -89,7 +88,6 @@ public class PortfolioResponse {
                 .name(portfolio.getName())
                 .slug(portfolio.getSlug())
                 .status(portfolio.getStatus())
-                .viewCount(portfolio.getViewCount())
                 .profile(portfolio.getProfile())
                 .settings(portfolio.getSettings())
                 .skills(portfolio.getSkills())
