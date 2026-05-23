@@ -7,8 +7,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -26,4 +29,11 @@ public interface ContactRepository extends JpaRepository<Contact, UUID> {
     @Modifying
     @Query("UPDATE Contact c SET c.status = 'READ' WHERE c.id = :id")
     void markAsRead(UUID id);
+
+    @Query("SELECT COUNT(c) FROM Contact c " +
+            "WHERE c.portfolioId IN :portfolioIds " +
+            "AND c.createdAt >= :since")
+    long countByPortfolioIdsAndCreatedAtAfter(
+            @Param("portfolioIds") List<UUID> portfolioIds,
+            @Param("since") Instant since);
 }

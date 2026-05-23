@@ -3,6 +3,7 @@ package com.cyopo.auth.model;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Type;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
@@ -69,6 +70,16 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Type(io.hypersistence.utils.hibernate.type.json.JsonBinaryType.class)
+    @Column(
+            name = "notification_preferences",
+            columnDefinition = "jsonb",
+            nullable = false
+    )
+    @Builder.Default
+    private NotificationPreferences notificationPreferences =
+            new NotificationPreferences();
+
     public boolean isPremium() {
         return this.plan == Plan.PREMIUM;
     }
@@ -76,4 +87,6 @@ public class User {
     public boolean isActive() {
         return this.status == UserStatus.ACTIVE;
     }
+
+
 }

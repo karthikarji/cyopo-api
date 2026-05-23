@@ -21,6 +21,15 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.cyopo.auth.dto.request.ChangePasswordRequest;
+import com.cyopo.auth.dto.request.ForgotPasswordRequest;
+import com.cyopo.auth.dto.request.ResetPasswordRequest;
+import com.cyopo.auth.event.PasswordResetRequestedEvent;
+import com.cyopo.auth.model.PasswordResetToken;
+import com.cyopo.auth.repository.PasswordResetTokenRepository;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 import java.util.UUID;
 
@@ -35,6 +44,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final ApplicationEventPublisher eventPublisher;
     private final RefreshTokenService refreshTokenService;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -135,6 +145,113 @@ public class AuthService {
         return UserResponse.from(user);
     }
 
+    // ─── Change Password ──────────────────────────────────────────────
+    @Transactional
+    public void changePassword(String userId,
+                               ChangePasswordRequest request) {
+        User user = findUserById(userId);
+
+        if (!passwordEncoder.matches(
+                request.getCurrentPassword(), user.getPassword())) {
+            throw new BadRequestException(
+                    "Current password is incorrect");
+        }
+        if (!request.getNewPassword()
+                .equals(request.getConfirmPassword())) {
+            throw new BadRequestException(
+                    "New password and confirmation do not match");
+        }
+        if (passwordEncoder.matches(
+                request.getNewPassword(), user.getPassword())) {
+            throw new BadRequestException(
+                    "New password must be different from current");
+        }
+
+        user.setPassword(
+                passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        // Invalidate all sessions — force re-login on other devices
+        refreshTokenService.deleteByUserId(user.getId());
+
+        log.info("Password changed for user: {}", user.getEmail());
+    }
+
+    // ─── Forgot Password ──────────────────────────────────────────────
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        // Always return success — never reveal if email exists
+        userRepository.findByEmail(
+                request.getEmail().toLowerCase()).ifPresent(user -> {
+
+            // Delete any existing unused tokens
+            passwordResetTokenRepository.deleteByUserId(user.getId());
+
+            // Generate secure token
+            String token = UUID.randomUUID().toString()
+                    + UUID.randomUUID().toString().replace("-", "");
+
+            PasswordResetToken resetToken = PasswordResetToken.builder()
+                    .user(user)
+                    .token(token)
+                    .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
+                    .build();
+
+            passwordResetTokenRepository.save(resetToken);
+
+            // Publish event — sends email asynchronously
+            eventPublisher.publishEvent(
+                    new PasswordResetRequestedEvent(
+                            this,
+                            user.getEmail(),
+                            user.getName(),
+                            token
+                    ));
+
+            log.info("Password reset requested for: {}",
+                    user.getEmail());
+        });
+    }
+
+    // ─── Reset Password ───────────────────────────────────────────────
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        PasswordResetToken resetToken = passwordResetTokenRepository
+                .findByToken(request.getToken())
+                .orElseThrow(() -> new BadRequestException(
+                        "Invalid or expired reset link"));
+
+        if (resetToken.getUsed()) {
+            throw new BadRequestException(
+                    "This reset link has already been used");
+        }
+        if (Instant.now().isAfter(resetToken.getExpiresAt())) {
+            throw new BadRequestException(
+                    "This reset link has expired. Please request a new one");
+        }
+        if (!request.getNewPassword()
+                .equals(request.getConfirmPassword())) {
+            throw new BadRequestException(
+                    "Passwords do not match");
+        }
+
+        User user = resetToken.getUser();
+        user.setPassword(
+                passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        // Mark token as used
+        resetToken.setUsed(true);
+        passwordResetTokenRepository.save(resetToken);
+
+        // Invalidate all sessions
+        refreshTokenService.deleteByUserId(user.getId());
+
+        log.info("Password reset completed for: {}", user.getEmail());
+    }
+
+
+    // ─── Update User ──────────────────────────────────────────────────
     @Transactional
     public UserResponse updateUser(String userId,
                                    UpdateUserRequest request) {
@@ -143,14 +260,9 @@ public class AuthService {
         if (request.getName() != null) {
             user.setName(request.getName());
         }
-
-        if (request.getEmail() != null
-                && !request.getEmail().equals(user.getEmail())) {
-            if (userRepository.existsByEmail(request.getEmail())) {
-                throw new ConflictException(
-                        "An account with this email already exists");
-            }
-            user.setEmail(request.getEmail().toLowerCase());
+        if (request.getNotificationPreferences() != null) {
+            user.setNotificationPreferences(
+                    request.getNotificationPreferences());
         }
 
         User updated = userRepository.save(user);
