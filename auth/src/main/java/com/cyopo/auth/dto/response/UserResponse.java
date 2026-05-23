@@ -1,9 +1,6 @@
 package com.cyopo.auth.dto.response;
 
-import com.cyopo.auth.model.Plan;
-import com.cyopo.auth.model.Role;
-import com.cyopo.auth.model.User;
-import com.cyopo.auth.model.UserStatus;
+import com.cyopo.auth.model.*;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -20,6 +17,7 @@ public class UserResponse {
     private Role role;
     private Plan plan;
     private UserStatus status;
+    private NotificationPreferences notificationPreferences;
     private Instant createdAt;
 
     public static UserResponse from(User user) {
@@ -30,6 +28,8 @@ public class UserResponse {
                 .role(user.getRole())
                 .plan(user.getPlan())
                 .status(user.getStatus())
+                .notificationPreferences(
+                        user.getNotificationPreferences())
                 .createdAt(user.getCreatedAt())
                 .build();
     }

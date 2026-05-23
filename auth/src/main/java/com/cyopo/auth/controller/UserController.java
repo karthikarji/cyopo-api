@@ -1,5 +1,6 @@
 package com.cyopo.auth.controller;
 
+import com.cyopo.auth.dto.request.ChangePasswordRequest;
 import com.cyopo.auth.dto.request.UpdateUserRequest;
 import com.cyopo.auth.dto.response.UserResponse;
 import com.cyopo.auth.service.AuthService;
@@ -39,5 +40,14 @@ public class UserController {
         authService.deleteUser(userId);
         return ResponseEntity.ok(
                 ApiResponse.success("Account deleted successfully"));
+    }
+
+    @PutMapping("/password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            @AuthenticationPrincipal String userId,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(userId, request);
+        return ResponseEntity.ok(
+                ApiResponse.success("Password changed successfully"));
     }
 }

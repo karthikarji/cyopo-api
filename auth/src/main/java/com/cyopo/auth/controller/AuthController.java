@@ -1,8 +1,6 @@
 package com.cyopo.auth.controller;
 
-import com.cyopo.auth.dto.request.LoginRequest;
-import com.cyopo.auth.dto.request.RefreshRequest;
-import com.cyopo.auth.dto.request.RegisterRequest;
+import com.cyopo.auth.dto.request.*;
 import com.cyopo.auth.dto.response.AuthResponse;
 import com.cyopo.auth.service.AuthService;
 import com.cyopo.common.response.ApiResponse;
@@ -53,5 +51,23 @@ public class AuthController {
         authService.logout(userId);
         return ResponseEntity.ok(
                 ApiResponse.success("Logged out successfully"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        // Always return success — never reveal if email exists
+        return ResponseEntity.ok(ApiResponse.success(
+                "If an account exists with this email, " +
+                        "you will receive a password reset link shortly"));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(
+                ApiResponse.success("Password reset successfully"));
     }
 }

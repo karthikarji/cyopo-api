@@ -1,5 +1,6 @@
 package com.cyopo.core.service;
 
+import com.cyopo.auth.repository.UserRepository;
 import com.cyopo.common.exception.ConflictException;
 import com.cyopo.common.exception.ResourceNotFoundException;
 import com.cyopo.common.response.PageResponse;
@@ -29,6 +30,7 @@ public class ContactService {
     private final ContactRepository    contactRepository;
     private final PortfolioRepository  portfolioRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserRepository userRepository;;
 
     @Transactional
     public void sendContact(String slug, ContactFormRequest request) {
@@ -54,14 +56,22 @@ public class ContactService {
 
         contactRepository.save(contact);
 
-        eventPublisher.publishEvent(new PortfolioContactReceivedEvent(
-                this,
-                portfolio.getProfile().getEmail(),
-                request.getName(),
-                request.getEmail(),
-                request.getSubject(),
-                request.getMessage()
-        ));
+        // Only notify owner if emailOnMessage preference is enabled
+        userRepository.findById(portfolio.getUserId()).ifPresent(owner -> {
+            boolean shouldNotify = owner.getNotificationPreferences() == null
+                    || owner.getNotificationPreferences().isEmailOnMessage();
+
+            if (shouldNotify) {
+                eventPublisher.publishEvent(new PortfolioContactReceivedEvent(
+                        this,
+                        portfolio.getProfile().getEmail(),
+                        request.getName(),
+                        request.getEmail(),
+                        request.getSubject(),
+                        request.getMessage()
+                ));
+            }
+        });
 
         log.info("Contact message saved for portfolio: {}", slug);
     }

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Your weekly cyopo digest</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f4f4f4;
+             margin: 0; padding: 0;">
+<div style="max-width: 600px; margin: 40px auto; background: #ffffff;
+            border-radius: 8px; overflow: hidden;">
+
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #667eea, #764ba2);
+                padding: 40px; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">
+            Your Weekly Digest 📊
+        </h1>
+        <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">
+            Here's what happened with your portfolios this week
+        </p>
+    </div>
+
+    <!-- Body -->
+    <div style="padding: 40px;">
+        <h2 style="color: #333; margin: 0 0 8px;">
+            Hello, <span th:text="${name}">User</span>!
+        </h2>
+        <p style="color: #666; font-size: 14px; margin: 0 0 32px;">
+            Here's a summary of your portfolio activity over the last 7 days.
+        </p>
+
+        <!-- Stats grid -->
+        <div style="display: flex; gap: 16px; margin-bottom: 32px;">
+            <!-- Views -->
+            <div style="flex: 1; background: #f8f4ff; border-radius: 12px;
+                        padding: 24px; text-align: center;">
+                <p style="font-size: 36px; font-weight: bold; color: #667eea;
+                           margin: 0 0 4px;"
+                   th:text="${viewsThisWeek}">0</p>
+                <p style="font-size: 13px; color: #888; margin: 0;">
+                    Portfolio Views
+                </p>
+            </div>
+            <!-- Messages -->
+            <div style="flex: 1; background: #f0fdf4; border-radius: 12px;
+                        padding: 24px; text-align: center;">
+                <p style="font-size: 36px; font-weight: bold; color: #22c55e;
+                           margin: 0 0 4px;"
+                   th:text="${messagesThisWeek}">0</p>
+                <p style="font-size: 13px; color: #888; margin: 0;">
+                    New Messages
+                </p>
+            </div>
+        </div>
+
+        <!-- CTA buttons -->
+        <div style="display: flex; gap: 12px; margin-bottom: 32px;">
+            <a th:href="${analyticsUrl}"
+               style="flex: 1; display: block; text-align: center;
+                      background: #667eea; color: white; padding: 12px;
+                      text-decoration: none; border-radius: 8px;
+                      font-size: 14px; font-weight: bold;">
+                View Analytics
+            </a>
+            <a th:href="${messagesUrl}"
+               style="flex: 1; display: block; text-align: center;
+                      background: #f3f4f6; color: #374151; padding: 12px;
+                      text-decoration: none; border-radius: 8px;
+                      font-size: 14px; font-weight: bold;">
+                View Messages
+            </a>
+        </div>
+
+        <p style="color: #999; font-size: 13px;">
+            You have <strong th:text="${portfolioCount}">0</strong>
+            portfolio(s) on cyopo.
+            <a th:href="${dashboardUrl}" style="color: #667eea;">
+                Go to dashboard →
+            </a>
+        </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background: #f8f8f8; padding: 20px 40px;
+                border-top: 1px solid #eee;">
+        <p style="color: #999; font-size: 12px; margin: 0 0 8px;">
+            &copy; 2026 cyopo. All rights reserved.
+        </p>
+        <p style="color: #999; font-size: 12px; margin: 0;">
+            You are receiving this because you enabled weekly digest.
+            <a th:href="${settingsUrl}"
+               style="color: #667eea; text-decoration: none;">
+                Manage preferences →
+            </a>
+        </p>
+    </div>
+</div>
+</body>
+</html>
