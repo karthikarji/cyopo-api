@@ -16,12 +16,6 @@ public class UpdateTemplateRequest {
     @Size(max = 1000, message = "Description cannot exceed 1000 characters")
     private String description;
 
-    @Pattern(
-            regexp = "^(https?|ftp)://[^\\s/$.?#].[^\\s]*$",
-            message = "Thumbnail must be a valid URL"
-    )
-    private String thumbnail;
-
     @Size(max = 100, message = "Font cannot exceed 100 characters")
     private String font;
 

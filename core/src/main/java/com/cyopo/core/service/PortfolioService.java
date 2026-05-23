@@ -44,16 +44,9 @@ import java.util.UUID;
 public class PortfolioService {
 
     private final PortfolioRepository portfolioRepository;
-    private final UserRepository      userRepository;
+    private final UserRepository userRepository;
     private final TemplateService templateService;
     private final StorageService storageService;
-
-    // ─── Private Helper — resolve template slug ───────────────────────
-
-    private String resolveTemplateSlug(UUID templateId) {
-        if (templateId == null) return null;
-        return templateService.getTemplateSlug(templateId);
-    }
 
     // ─── User Operations ─────────────────────────────────────────────
 
@@ -94,7 +87,8 @@ public class PortfolioService {
 
         Portfolio result = portfolioRepository.saveAndFlush(saved);
         log.info("Portfolio created: {} for user: {}", result.getSlug(), userId);
-        return PortfolioResponse.from(result);
+        String[] colors = resolveTemplateColors(result.getTemplateId());
+        return PortfolioResponse.from(result, colors[0], colors[1]);
     }
 
     @Transactional(readOnly = true)
@@ -138,7 +132,8 @@ public class PortfolioService {
                 .findByIdAndUserId(portfolioId, UUID.fromString(userId))
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Portfolio", "id", portfolioId));
-        return PortfolioResponse.from(portfolio);
+        String[] colors = resolveTemplateColors(portfolio.getTemplateId());
+        return PortfolioResponse.from(portfolio, colors[0], colors[1]);
     }
 
     @Transactional(readOnly = true)
@@ -151,8 +146,8 @@ public class PortfolioService {
         if (!portfolio.getUserId().equals(UUID.fromString(userId))) {
             throw new ResourceNotFoundException("Portfolio", "slug", slug);
         }
-
-        return PortfolioResponse.from(portfolio);
+        String[] colors = resolveTemplateColors(portfolio.getTemplateId());
+        return PortfolioResponse.from(portfolio, colors[0], colors[1]);
     }
 
     @Transactional
@@ -364,7 +359,8 @@ public class PortfolioService {
                         slug, PortfolioStatus.PUBLISHED, true)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Portfolio", "slug", slug));
-        return PortfolioResponse.from(portfolio);
+        String[] colors = resolveTemplateColors(portfolio.getTemplateId());
+        return PortfolioResponse.from(portfolio, colors[0], colors[1]);
     }
 
     @Transactional(readOnly = true)
@@ -379,7 +375,60 @@ public class PortfolioService {
         );
     }
 
-    // ─── Private Helpers ─────────────────────────────────────────────
+    // ─── Profile Photo ────────────────────────────────────────────────
+
+    @Transactional
+    public String uploadProfilePhoto(String userId, UUID portfolioId,
+                                     MultipartFile file) {
+        Portfolio portfolio = portfolioRepository
+                .findByIdAndUserId(portfolioId, UUID.fromString(userId))
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Portfolio", "id", portfolioId));
+
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("File is required");
+        }
+        if (file.getSize() > 2 * 1024 * 1024) {
+            throw new BadRequestException("File size exceeds 2MB limit");
+        }
+        if (!isImageType(file.getContentType())) {
+            throw new BadRequestException(
+                    "Only image files are allowed (JPG, PNG, WebP, GIF)");
+        }
+
+        // Delete old photo from Cloudinary if exists
+        if (portfolio.getProfilePhotoPublicId() != null) {
+            storageService.delete(portfolio.getProfilePhotoPublicId());
+        }
+
+        StorageResult result = storageService.upload(file, StorageFolder.PROFILES);
+
+        portfolio.getProfile().setProfilePhoto(result.url());
+        portfolio.setProfilePhotoPublicId(result.publicId());
+        portfolioRepository.save(portfolio);
+
+        log.info("Profile photo uploaded for portfolio: {}", portfolioId);
+        return result.url();
+    }
+
+    @Transactional
+    public void deleteProfilePhoto(String userId, UUID portfolioId) {
+        Portfolio portfolio = portfolioRepository
+                .findByIdAndUserId(portfolioId, UUID.fromString(userId))
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Portfolio", "id", portfolioId));
+
+        if (portfolio.getProfilePhotoPublicId() != null) {
+            storageService.delete(portfolio.getProfilePhotoPublicId());
+            portfolio.getProfile().setProfilePhoto(null);
+            portfolio.setProfilePhotoPublicId(null);
+            portfolioRepository.save(portfolio);
+        }
+
+        log.info("Profile photo deleted for portfolio: {}", portfolioId);
+    }
+
+    // ─── Private helper ───────────────────────────────────────────────
 
     private PortfolioProfile buildProfile(
             CreatePortfolioRequest.ProfileRequest req) {
@@ -527,60 +576,10 @@ public class PortfolioService {
         });
     }
 
-    // ─── Profile Photo ────────────────────────────────────────────────
-
-    @Transactional
-    public String uploadProfilePhoto(String userId, UUID portfolioId,
-                                     MultipartFile file) {
-        Portfolio portfolio = portfolioRepository
-                .findByIdAndUserId(portfolioId, UUID.fromString(userId))
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Portfolio", "id", portfolioId));
-
-        if (file == null || file.isEmpty()) {
-            throw new BadRequestException("File is required");
-        }
-        if (file.getSize() > 2 * 1024 * 1024) {
-            throw new BadRequestException("File size exceeds 2MB limit");
-        }
-        if (!isImageType(file.getContentType())) {
-            throw new BadRequestException(
-                    "Only image files are allowed (JPG, PNG, WebP, GIF)");
-        }
-
-        // Delete old photo from Cloudinary if exists
-        if (portfolio.getProfilePhotoPublicId() != null) {
-            storageService.delete(portfolio.getProfilePhotoPublicId());
-        }
-
-        StorageResult result = storageService.upload(file, StorageFolder.PROFILES);
-
-        portfolio.getProfile().setProfilePhoto(result.url());
-        portfolio.setProfilePhotoPublicId(result.publicId());
-        portfolioRepository.save(portfolio);
-
-        log.info("Profile photo uploaded for portfolio: {}", portfolioId);
-        return result.url();
+    private String resolveTemplateSlug(UUID templateId) {
+        if (templateId == null) return null;
+        return templateService.getTemplateSlug(templateId);
     }
-
-    @Transactional
-    public void deleteProfilePhoto(String userId, UUID portfolioId) {
-        Portfolio portfolio = portfolioRepository
-                .findByIdAndUserId(portfolioId, UUID.fromString(userId))
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Portfolio", "id", portfolioId));
-
-        if (portfolio.getProfilePhotoPublicId() != null) {
-            storageService.delete(portfolio.getProfilePhotoPublicId());
-            portfolio.getProfile().setProfilePhoto(null);
-            portfolio.setProfilePhotoPublicId(null);
-            portfolioRepository.save(portfolio);
-        }
-
-        log.info("Profile photo deleted for portfolio: {}", portfolioId);
-    }
-
-// ─── Private helper ───────────────────────────────────────────────
 
     private boolean isImageType(String mimeType) {
         return mimeType != null && (
@@ -589,5 +588,9 @@ public class PortfolioService {
                         mimeType.equals("image/webp") ||
                         mimeType.equals("image/gif")
         );
+    }
+
+    private String[] resolveTemplateColors(UUID templateId) {
+        return templateService.getTemplateColors(templateId);
     }
 }

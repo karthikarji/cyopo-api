@@ -1,8 +1,12 @@
 package com.cyopo.template.service;
 
+import com.cyopo.common.exception.BadRequestException;
 import com.cyopo.common.exception.ConflictException;
 import com.cyopo.common.exception.ResourceNotFoundException;
 import com.cyopo.common.response.PageResponse;
+import com.cyopo.common.storage.StorageFolder;
+import com.cyopo.common.storage.StorageResult;
+import com.cyopo.common.storage.StorageService;
 import com.cyopo.template.dto.request.CreateTemplateRequest;
 import com.cyopo.template.dto.request.UpdateTemplateRequest;
 import com.cyopo.template.dto.response.TemplateResponse;
@@ -19,6 +23,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +35,7 @@ import java.util.UUID;
 public class TemplateService {
 
     private final TemplateRepository templateRepository;
+    private final StorageService storageService;
 
     // ─── Admin Use Cases ────────────────────────────────────────────
 
@@ -44,7 +50,6 @@ public class TemplateService {
         Template template = Template.builder()
                 .title(request.getTitle().toLowerCase())
                 .description(request.getDescription().toLowerCase())
-                .thumbnail(request.getThumbnail())
                 .font(request.getFont())
                 .primaryColor(request.getPrimaryColor())
                 .secondaryColor(request.getSecondaryColor())
@@ -77,9 +82,6 @@ public class TemplateService {
         if (request.getDescription() != null) {
             template.setDescription(
                     request.getDescription().toLowerCase());
-        }
-        if (request.getThumbnail() != null) {
-            template.setThumbnail(request.getThumbnail());
         }
         if (request.getFont() != null) {
             template.setFont(request.getFont());
@@ -207,7 +209,47 @@ public class TemplateService {
         );
     }
 
-    // In template module TemplateService.java
+    @Transactional
+    public TemplateResponse uploadThumbnail(UUID id, MultipartFile file) {
+        Template template = findTemplateById(id);
+
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("Thumbnail file is required");
+        }
+        if (file.getSize() > 3 * 1024 * 1024) {
+            throw new BadRequestException("File size exceeds 3MB limit");
+        }
+        if (!isImageType(file.getContentType())) {
+            throw new BadRequestException(
+                    "Only image files are allowed (JPG, PNG, WebP)");
+        }
+
+        // Delete old thumbnail from Cloudinary if exists
+        if (template.getThumbnailPublicId() != null) {
+            storageService.delete(template.getThumbnailPublicId());
+        }
+
+        // Upload new thumbnail
+        StorageResult result = storageService.upload(
+                file, StorageFolder.THUMBNAILS);
+
+        template.setThumbnail(result.url());
+        template.setThumbnailPublicId(result.publicId());
+
+        Template updated = templateRepository.saveAndFlush(template);
+        log.info("Thumbnail uploaded for template: {}", updated.getTitle());
+        return TemplateResponse.from(updated);
+    }
+
+    private boolean isImageType(String mimeType) {
+        return mimeType != null && (
+                mimeType.equals("image/jpeg") ||
+                        mimeType.equals("image/png")  ||
+                        mimeType.equals("image/webp") ||
+                        mimeType.equals("image/gif")
+        );
+    }
+
     public String getTemplateSlug(UUID templateId) {
         return templateRepository.findById(templateId)
                 .map(Template::getSlug)
@@ -220,5 +262,12 @@ public class TemplateService {
         return templateRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Template", "id", id));
+    }
+
+    public String[] getTemplateColors(UUID templateId) {
+        if (templateId == null) return new String[]{ "#111827", "#8b5cf6" };
+        return templateRepository.findById(templateId)
+                .map(t -> new String[]{ t.getPrimaryColor(), t.getSecondaryColor() })
+                .orElse(new String[]{ "#111827", "#8b5cf6" });
     }
 }
