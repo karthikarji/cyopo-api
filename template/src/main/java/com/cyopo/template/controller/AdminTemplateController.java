@@ -10,9 +10,11 @@ import com.cyopo.template.service.TemplateService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -47,14 +49,37 @@ public class AdminTemplateController {
                 ApiResponse.success(templateService.getById(id)));
     }
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<TemplateResponse>> create(
-            @Valid @RequestBody CreateTemplateRequest request) {
+            @Valid @ModelAttribute CreateTemplateRequest request,
+            @RequestParam("thumbnail") MultipartFile thumbnail) {
+
+        // Step 1 — create template (no thumbnail yet)
         TemplateResponse response = templateService.create(request);
+
+        // Step 2 — upload thumbnail immediately
+        TemplateResponse withThumbnail = templateService.uploadThumbnail(
+                response.getId(), thumbnail);
+
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success(
-                        "Template created successfully", response));
+                        "Template created successfully", withThumbnail));
+    }
+
+    @PostMapping(value = "/{id}/thumbnail",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<TemplateResponse>> uploadThumbnail(
+            @PathVariable UUID id,
+            @RequestParam("thumbnail") MultipartFile file) {
+        try {
+            TemplateResponse response = templateService.uploadThumbnail(id, file);
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Thumbnail uploaded successfully", response));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(ex.getMessage()));
+        }
     }
 
     @PutMapping("/{id}")

@@ -32,6 +32,9 @@ public class Template {
     @Column(nullable = false, length = 500)
     private String thumbnail;
 
+    @Column(name = "thumbnail_public_id", length = 255)
+    private String thumbnailPublicId;
+
     @Column(nullable = false, length = 100)
     private String font;
 

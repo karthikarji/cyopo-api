@@ -17,13 +17,6 @@ public class CreateTemplateRequest {
     @Size(max = 1000, message = "Description cannot exceed 1000 characters")
     private String description;
 
-    @NotBlank(message = "Thumbnail is required")
-    @Pattern(
-            regexp = "^(https?|ftp)://[^\\s/$.?#].[^\\s]*$",
-            message = "Thumbnail must be a valid URL"
-    )
-    private String thumbnail;
-
     @NotBlank(message = "Font is required")
     @Size(max = 100, message = "Font cannot exceed 100 characters")
     private String font;

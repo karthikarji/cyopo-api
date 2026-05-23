@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Getter
-@Builder
+@Builder(toBuilder = true)
 public class PortfolioResponse {
 
     private UUID   id;
@@ -20,13 +20,15 @@ public class PortfolioResponse {
     private PortfolioStatus  status;
     private PortfolioProfile profile;
     private PortfolioSettings settings;
-    private List<Skill>          skills;
+    private List<Skill>  skills;
     private List<Certification>  certifications;
     private List<ExperienceResponse> experiences;
     private List<EducationResponse> educations;
     private List<ProjectResponse>    projects;
     private String  templateConfig;
     private String templateSlug;
+    private String templatePrimaryColor;
+    private String templateSecondaryColor;
 
     private String  resumeFileName;
     private Integer resumeFileSize;
@@ -78,6 +80,16 @@ public class PortfolioResponse {
         private String  completedDate;
         private List<String> technologies;
         private String templateSlug;
+    }
+
+    public static PortfolioResponse from(Portfolio portfolio,
+                                         String primaryColor,
+                                         String secondaryColor) {
+        PortfolioResponse base = from(portfolio);
+        return base.toBuilder()
+                .templatePrimaryColor(primaryColor)
+                .templateSecondaryColor(secondaryColor)
+                .build();
     }
 
     public static PortfolioResponse from(Portfolio portfolio) {
