@@ -21,6 +21,7 @@
         <module>template</module>
         <module>core</module>
         <module>billing</module>
+        <module>admin</module>
         <module>api</module>
     </modules>
 
@@ -66,6 +67,11 @@
             <dependency>
                 <groupId>com.cyopo</groupId>
                 <artifactId>billing</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.cyopo</groupId>
+                <artifactId>admin</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

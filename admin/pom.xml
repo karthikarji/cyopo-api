@@ -2,7 +2,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
@@ -11,65 +11,58 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>api</artifactId>
-    <name>api</name>
-    <description>Spring Boot entry point — wires all modules</description>
+    <artifactId>admin</artifactId>
+    <name>admin</name>
+    <description>Admin handles Users, Coupons and Billing Management</description>
 
     <dependencies>
+        <!-- common — ApiResponse, PageResponse, exceptions -->
         <dependency>
             <groupId>com.cyopo</groupId>
             <artifactId>common</artifactId>
         </dependency>
+
+        <!-- auth — User entity, UserRepository, Plan, UserStatus -->
         <dependency>
             <groupId>com.cyopo</groupId>
             <artifactId>auth</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.cyopo</groupId>
-            <artifactId>template</artifactId>
-        </dependency>
+
+        <!-- core — PortfolioRepository -->
         <dependency>
             <groupId>com.cyopo</groupId>
             <artifactId>core</artifactId>
         </dependency>
+
+        <!-- billing — Coupon, CouponRedemption entities + repositories -->
         <dependency>
             <groupId>com.cyopo</groupId>
             <artifactId>billing</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.cyopo</groupId>
-            <artifactId>admin</artifactId>
-        </dependency>
+
+        <!-- Spring Web -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+
+        <!-- Spring Security -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
+            <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
+
+        <!-- Validation -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-devtools</artifactId>
-            <scope>runtime</scope>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
-        <dependency>
-            <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.sentry</groupId>
-            <artifactId>sentry-spring-boot-starter-jakarta</artifactId>
-        </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-        </plugins>
-    </build>
 </project>
