@@ -27,6 +27,7 @@ app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
   scheduler:
     weekly-digest-cron: "0 0 8 * * MON"
+    coupon-expiry-cron: "0 0 * * * *"
 server:
   port: 8080
 

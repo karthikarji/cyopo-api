@@ -25,6 +25,8 @@ public interface PortfolioRepository extends JpaRepository<Portfolio, UUID>,
 
     boolean existsBySlugAndIdNot(String slug, UUID id);
 
+    long countByUserId(UUID userId);
+
     long countByUserIdAndStatus(UUID userId, PortfolioStatus status);
 
     @Query("SELECT p.slug FROM Portfolio p WHERE p.slug LIKE :prefix%")
