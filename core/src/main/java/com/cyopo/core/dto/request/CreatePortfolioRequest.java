@@ -35,6 +35,7 @@ public class CreatePortfolioRequest {
     private List<ProjectRequest> projects = new ArrayList<>();
     private List<EducationRequest> educations;
     private SettingsRequest settings = new SettingsRequest();
+    private List<String> customSkillCategories = new ArrayList<>();
 
     @Getter
     public static class ProfileRequest {
@@ -73,6 +74,7 @@ public class CreatePortfolioRequest {
     public static class SkillRequest {
         private String name;
         private SkillCategory category;
+        private String customCategory;
         private SkillProficiency proficiency;
         private Integer level;
     }
@@ -107,19 +109,20 @@ public class CreatePortfolioRequest {
 
         private List<String> achievements = new ArrayList<>();
         private List<String> technologies = new ArrayList<>();
+        private ExperienceType type = ExperienceType.FULL_TIME;
     }
 
     @Getter
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class EducationRequest {
-        private String  institution;
-        private String  degree;
-        private String  field;
-        private String  startDate;
-        private String  endDate;
+        private String institution;
+        private String degree;
+        private String field;
+        private String startDate;
+        private String endDate;
         private Boolean isCurrent;
-        private String  grade;
-        private String  description;
+        private String grade;
+        private String description;
     }
 
     @Getter

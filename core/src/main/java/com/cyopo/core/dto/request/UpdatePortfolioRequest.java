@@ -13,6 +13,7 @@ public class UpdatePortfolioRequest {
     private UUID templateId;
     private CreatePortfolioRequest.ProfileRequest profile;
     private List<CreatePortfolioRequest.SkillRequest> skills;
+    private List<String> customSkillCategories;
     private List<CreatePortfolioRequest.CertificationRequest> certifications;
     private List<CreatePortfolioRequest.ExperienceRequest> experiences;
     private List<CreatePortfolioRequest.EducationRequest> educations;

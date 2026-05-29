@@ -27,4 +27,7 @@ public class Skill {
 
     @Column(name = "level")
     private Integer level;
+
+    @Column(name = "custom_category", length = 100)
+    private String customCategory;
 }

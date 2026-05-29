@@ -64,7 +64,7 @@ public class PortfolioService {
                 .findSlugsByPrefix(baseSlug);
         String slug = SlugUtil.nextAvailableSlug(baseSlug, existingSlugs);
 
-        PortfolioProfile  profile  = buildProfile(request.getProfile());
+        PortfolioProfile profile = buildProfile(request.getProfile());
         PortfolioSettings settings = buildSettings(request.getSettings());
 
         Portfolio portfolio = Portfolio.builder()
@@ -76,6 +76,10 @@ public class PortfolioService {
                 .profile(profile)
                 .settings(settings)
                 .skills(buildSkills(request.getSkills()))
+                .customSkillCategories(
+                        request.getCustomSkillCategories() != null
+                                ? request.getCustomSkillCategories()
+                                : new ArrayList<>())
                 .certifications(buildCertifications(request.getCertifications()))
                 .build();
 
@@ -196,6 +200,10 @@ public class PortfolioService {
         if (request.getSkills() != null) {
             portfolio.setSkills(buildSkills(request.getSkills()));
         }
+        if (request.getCustomSkillCategories() != null) {
+            portfolio.setCustomSkillCategories(
+                    request.getCustomSkillCategories());
+        }
         if (request.getCertifications() != null) {
             portfolio.setCertifications(
                     buildCertifications(request.getCertifications()));
@@ -282,7 +290,7 @@ public class PortfolioService {
         String newSlug = SlugUtil.nextAvailableSlug(baseSlug, existingSlugs);
 
         PortfolioProfile originalProfile = original.getProfile();
-        PortfolioProfile copiedProfile   = new PortfolioProfile();
+        PortfolioProfile copiedProfile = new PortfolioProfile();
         copiedProfile.setName(originalProfile.getName());
         copiedProfile.setTitle(originalProfile.getTitle());
         copiedProfile.setBio(originalProfile.getBio());
@@ -296,7 +304,7 @@ public class PortfolioService {
                 originalProfile.getSocialMedia()));
 
         PortfolioSettings originalSettings = original.getSettings();
-        PortfolioSettings copiedSettings   = PortfolioSettings.builder()
+        PortfolioSettings copiedSettings = PortfolioSettings.builder()
                 .isPublic(originalSettings.getIsPublic())
                 .allowComments(originalSettings.getAllowComments())
                 .showContactInfo(originalSettings.getShowContactInfo())
@@ -483,6 +491,7 @@ public class PortfolioService {
                 .map(s -> Skill.builder()
                         .name(s.getName())
                         .category(s.getCategory())
+                        .customCategory(s.getCustomCategory())
                         .proficiency(s.getProficiency())
                         .level(s.getLevel())
                         .build())
@@ -528,6 +537,8 @@ public class PortfolioService {
                     .description(e.getDescription())
                     .achievements(new ArrayList<>(e.getAchievements()))
                     .technologies(new ArrayList<>(e.getTechnologies()))
+                    .type(e.getType() != null
+                            ? e.getType() : ExperienceType.FULL_TIME)
                     .build();
             portfolio.getExperiences().add(exp);
         });
@@ -584,7 +595,7 @@ public class PortfolioService {
     private boolean isImageType(String mimeType) {
         return mimeType != null && (
                 mimeType.equals("image/jpeg") ||
-                        mimeType.equals("image/png")  ||
+                        mimeType.equals("image/png") ||
                         mimeType.equals("image/webp") ||
                         mimeType.equals("image/gif")
         );

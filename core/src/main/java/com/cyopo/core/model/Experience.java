@@ -49,6 +49,11 @@ public class Experience {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private ExperienceType type = ExperienceType.FULL_TIME;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     @Builder.Default
