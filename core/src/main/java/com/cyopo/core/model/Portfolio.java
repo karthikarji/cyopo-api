@@ -62,6 +62,11 @@ public class Portfolio {
     @Builder.Default
     private List<Skill> skills = new ArrayList<>();
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "custom_skill_categories", columnDefinition = "jsonb")
+    @Builder.Default
+    private List<String> customSkillCategories = new ArrayList<>();
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(
             name = "portfolio_certifications",

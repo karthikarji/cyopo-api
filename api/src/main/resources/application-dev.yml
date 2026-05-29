@@ -25,7 +25,7 @@ spring:
       port: 6379
 
 cors:
-  allowed-origins: http://localhost:3000,http://localhost:3001
+  allowed-origins: http://localhost:3000,http://localhost:3001,http://192.168.29.24:3000/
 
 jwt:
   secret: ${JWT_SECRET}
@@ -41,5 +41,5 @@ sentry:
 
 logging:
   level:
-#    com.cyopo: DEBUG
+    #    com.cyopo: DEBUG
     org.hibernate.SQL: OFF

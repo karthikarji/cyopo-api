@@ -12,25 +12,26 @@ import java.util.UUID;
 @Builder(toBuilder = true)
 public class PortfolioResponse {
 
-    private UUID   id;
-    private UUID   userId;
-    private UUID   templateId;
+    private UUID id;
+    private UUID userId;
+    private UUID templateId;
     private String name;
     private String slug;
-    private PortfolioStatus  status;
+    private PortfolioStatus status;
     private PortfolioProfile profile;
     private PortfolioSettings settings;
-    private List<Skill>  skills;
-    private List<Certification>  certifications;
+    private List<Skill> skills;
+    private List<String> customSkillCategories;
+    private List<Certification> certifications;
     private List<ExperienceResponse> experiences;
     private List<EducationResponse> educations;
-    private List<ProjectResponse>    projects;
-    private String  templateConfig;
+    private List<ProjectResponse> projects;
+    private String templateConfig;
     private String templateSlug;
     private String templatePrimaryColor;
     private String templateSecondaryColor;
 
-    private String  resumeFileName;
+    private String resumeFileName;
     private Integer resumeFileSize;
     private boolean hasResume;
 
@@ -40,44 +41,45 @@ public class PortfolioResponse {
     @Getter
     @Builder
     public static class ExperienceResponse {
-        private UUID   id;
+        private UUID id;
         private String title;
         private String company;
         private String location;
         private String startDate;
         private String endDate;
         private Boolean isCurrent;
-        private String  description;
+        private String description;
         private List<String> achievements;
         private List<String> technologies;
+        private ExperienceType type;
     }
 
     @Getter
     @Builder
     public static class EducationResponse {
-        private UUID    id;
-        private String  institution;
-        private String  degree;
-        private String  field;
-        private String  startDate;
-        private String  endDate;
+        private UUID id;
+        private String institution;
+        private String degree;
+        private String field;
+        private String startDate;
+        private String endDate;
         private Boolean isCurrent;
-        private String  grade;
-        private String  description;
+        private String grade;
+        private String description;
         private Integer sortOrder;
     }
 
     @Getter
     @Builder
     public static class ProjectResponse {
-        private UUID   id;
+        private UUID id;
         private String title;
         private String description;
         private String thumbnail;
         private String demoUrl;
         private String githubUrl;
         private Boolean isFeatured;
-        private String  completedDate;
+        private String completedDate;
         private List<String> technologies;
         private String templateSlug;
     }
@@ -103,6 +105,7 @@ public class PortfolioResponse {
                 .profile(portfolio.getProfile())
                 .settings(portfolio.getSettings())
                 .skills(portfolio.getSkills())
+                .customSkillCategories(portfolio.getCustomSkillCategories())
                 .certifications(portfolio.getCertifications())
 
                 // ← Resume fields mapped from portfolio entity
@@ -126,6 +129,7 @@ public class PortfolioResponse {
                                 .description(e.getDescription())
                                 .achievements(e.getAchievements())
                                 .technologies(e.getTechnologies())
+                                .type(e.getType())
                                 .build())
                         .toList())
                 .educations(portfolio.getEducations().stream()
