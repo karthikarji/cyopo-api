@@ -278,7 +278,7 @@ public class AuthService {
         log.info("User deleted: {}", user.getEmail());
     }
 
-    private User findUserById(String userId) {
+    public User findUserById(String userId) {
         return userRepository.findById(UUID.fromString(userId))
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "User", "id", userId));

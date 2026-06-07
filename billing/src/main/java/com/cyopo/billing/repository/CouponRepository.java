@@ -17,27 +17,37 @@ import java.util.UUID;
 @Repository
 public interface CouponRepository extends JpaRepository<Coupon, UUID> {
 
+    // Atomic increment — prevents over-redemption via race condition
+    @Modifying
+    @Transactional
+    @Query("UPDATE Coupon c SET c.usedCount = c.usedCount + 1 " +
+            "WHERE c.id = :id " +
+            "AND (:maxUses IS NULL OR c.usedCount < :maxUses)")
+    int incrementUsedCount(@Param("id") UUID id,
+                           @Param("maxUses") Integer maxUses);
+
+    // Used by BillingService for coupon lookup
     Optional<Coupon> findByCodeIgnoreCase(String code);
 
     boolean existsByCodeIgnoreCase(String code);
 
     @Query(value = """
-    SELECT * FROM billing.coupons
-    WHERE (
-        :search IS NULL
-        OR LOWER(code::text) LIKE LOWER(CONCAT('%', :search, '%'))
-        OR LOWER(description::text) LIKE LOWER(CONCAT('%', :search, '%'))
-    )
-    ORDER BY created_at DESC
-    """,
+            SELECT * FROM billing.coupons
+            WHERE (
+                :search IS NULL
+                OR LOWER(code::text) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(description::text) LIKE LOWER(CONCAT('%', :search, '%'))
+            )
+            ORDER BY created_at DESC
+            """,
             countQuery = """
-    SELECT COUNT(*) FROM billing.coupons
-    WHERE (
-        :search IS NULL
-        OR LOWER(code::text) LIKE LOWER(CONCAT('%', :search, '%'))
-        OR LOWER(description::text) LIKE LOWER(CONCAT('%', :search, '%'))
-    )
-    """,
+                    SELECT COUNT(*) FROM billing.coupons
+                    WHERE (
+                        :search IS NULL
+                        OR LOWER(code::text) LIKE LOWER(CONCAT('%', :search, '%'))
+                        OR LOWER(description::text) LIKE LOWER(CONCAT('%', :search, '%'))
+                    )
+                    """,
             nativeQuery = true)
     Page<Coupon> searchCoupons(@Param("search") String search, Pageable pageable);
 

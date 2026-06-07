@@ -90,6 +90,49 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Validation failed"));
     }
 
+    @ExceptionHandler(FeatureGatedException.class)
+    public ResponseEntity<ApiResponse<FeatureGateError>> handleFeatureGated(
+            FeatureGatedException ex) {
+
+        log.warn("Feature gate blocked: {} for plan: {}",
+                ex.getFeatureCode(), ex.getCurrentPlan());
+
+        return ResponseEntity
+                .status(HttpStatus.PAYMENT_REQUIRED)  // 402
+                .body(ApiResponse.error(ex.getMessage(),
+                        new FeatureGateError(
+                                ex.getFeatureCode(),
+                                ex.getCurrentPlan()
+                        )));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(
+            IllegalArgumentException ex) {
+        log.warn("Illegal argument: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalState(
+            IllegalStateException ex) {
+        log.warn("Illegal state: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(GatewayException.class)
+    public ResponseEntity<ApiResponse<Void>> handleGateway(
+            GatewayException ex) {
+        log.error("Gateway error: {}", ex.getMessage(), ex);
+        return ResponseEntity
+                .status(HttpStatus.BAD_GATEWAY)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex) {
         log.error("Unexpected error: {}", ex.getMessage(), ex);
@@ -97,5 +140,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("An unexpected error occurred"));
+    }
+
+    public record FeatureGateError(String featureCode, String currentPlan) {
     }
 }
