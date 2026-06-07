@@ -2,16 +2,16 @@ package com.cyopo.core.service;
 
 import com.cyopo.auth.model.Plan;
 import com.cyopo.auth.repository.UserRepository;
+import com.cyopo.billing.service.FeatureGateService;
 import com.cyopo.common.exception.BadRequestException;
-import com.cyopo.common.exception.ConflictException;
-import com.cyopo.common.exception.PlanUpgradeRequiredException;
 import com.cyopo.common.exception.ResourceNotFoundException;
 import com.cyopo.common.response.PageResponse;
 import com.cyopo.common.storage.StorageFolder;
 import com.cyopo.common.storage.StorageResult;
 import com.cyopo.common.storage.StorageService;
-import com.cyopo.common.util.SlugUtil;
+import com.cyopo.common.util.AppLogContext;
 import com.cyopo.common.util.SanitizationUtil;
+import com.cyopo.common.util.SlugUtil;
 import com.cyopo.core.dto.request.CreatePortfolioRequest;
 import com.cyopo.core.dto.request.PortfolioStatusRequest;
 import com.cyopo.core.dto.request.UpdatePortfolioRequest;
@@ -20,10 +20,8 @@ import com.cyopo.core.dto.response.SlugValidationResponse;
 import com.cyopo.core.model.*;
 import com.cyopo.core.repository.PortfolioRepository;
 import com.cyopo.core.specification.PortfolioSpecification;
-import com.cyopo.template.repository.TemplateRepository;
 import com.cyopo.template.service.TemplateService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -38,43 +36,62 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PortfolioService {
+
+    private static final String CLASS = "PortfolioService";
 
     private final PortfolioRepository portfolioRepository;
     private final UserRepository userRepository;
     private final TemplateService templateService;
     private final StorageService storageService;
+    private final FeatureGateService featureGateService;
 
-    // ─── User Operations ─────────────────────────────────────────────
+    // ─── Create ───────────────────────────────────────────────────────
 
     @Transactional
-    public PortfolioResponse create(
-            String userId,
-            CreatePortfolioRequest request) {
-
+    public PortfolioResponse create(String userId,
+                                    CreatePortfolioRequest request) {
         UUID userUUID = UUID.fromString(userId);
 
-        String baseSlug = (request.getSlug() != null && !request.getSlug().isBlank())
+        AppLogContext.info(CLASS, "create",
+                "Creating portfolio",
+                "userId", userId,
+                "name", request.getName());
+
+        // Feature gate: portfolio limit
+        userRepository.findById(userUUID).ifPresent(user -> {
+            int count = (int) portfolioRepository.countByUserId(userUUID);
+            featureGateService.checkPortfolioLimit(user, count);
+        });
+
+        // Feature gate: premium template
+        if (request.getTemplateId() != null) {
+            userRepository.findById(userUUID).ifPresent(user -> {
+                boolean isPremium = templateService
+                        .isTemplatePremium(request.getTemplateId());
+                featureGateService.checkPremiumTemplate(user, isPremium);
+            });
+        }
+
+        String baseSlug = (request.getSlug() != null
+                && !request.getSlug().isBlank())
                 ? request.getSlug()
                 : SlugUtil.generateSlug(request.getName());
-        List<String> existingSlugs = portfolioRepository
-                .findSlugsByPrefix(baseSlug);
-        String slug = SlugUtil.nextAvailableSlug(baseSlug, existingSlugs);
 
-        PortfolioProfile profile = buildProfile(request.getProfile());
-        PortfolioSettings settings = buildSettings(request.getSettings());
+        String slug = SlugUtil.nextAvailableSlug(
+                baseSlug,
+                portfolioRepository.findSlugsByPrefix(baseSlug));
 
         Portfolio portfolio = Portfolio.builder()
                 .userId(userUUID)
                 .templateId(request.getTemplateId())
-                .templateSlug(resolveTemplateSlug(request.getTemplateId()))  // ← add
+                .templateSlug(resolveTemplateSlug(request.getTemplateId()))
                 .name(SanitizationUtil.sanitize(request.getName()))
                 .slug(slug)
-                .profile(profile)
-                .settings(settings)
+                .profile(buildProfile(request.getProfile()))
+                .settings(buildSettings(request.getSettings()))
                 .skills(buildSkills(request.getSkills()))
                 .customSkillCategories(
                         request.getCustomSkillCategories() != null
@@ -84,24 +101,28 @@ public class PortfolioService {
                 .build();
 
         Portfolio saved = portfolioRepository.save(portfolio);
-
         addExperiences(saved, request.getExperiences());
         addEducations(saved, request.getEducations());
         addProjects(saved, request.getProjects());
 
         Portfolio result = portfolioRepository.saveAndFlush(saved);
-        log.info("Portfolio created: {} for user: {}", result.getSlug(), userId);
         String[] colors = resolveTemplateColors(result.getTemplateId());
+
+        AppLogContext.info(CLASS, "create",
+                "Portfolio created",
+                "portfolioId", result.getId(),
+                "slug", result.getSlug(),
+                "userId", userId);
+
         return PortfolioResponse.from(result, colors[0], colors[1]);
     }
 
+    // ─── Read ─────────────────────────────────────────────────────────
+
     @Transactional(readOnly = true)
     public PageResponse<PortfolioResponse> getUserPortfolios(
-            String userId,
-            PortfolioStatus status,
-            UUID templateId,
-            int page,
-            int limit) {
+            String userId, PortfolioStatus status,
+            UUID templateId, int page, int limit) {
 
         UUID userUUID = UUID.fromString(userId);
         Specification<Portfolio> spec = Specification
@@ -126,8 +147,7 @@ public class PortfolioService {
                         .toList(),
                 result.getTotalElements(),
                 page,
-                limit
-        );
+                limit);
     }
 
     @Transactional(readOnly = true)
@@ -136,6 +156,7 @@ public class PortfolioService {
                 .findByIdAndUserId(portfolioId, UUID.fromString(userId))
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Portfolio", "id", portfolioId));
+
         String[] colors = resolveTemplateColors(portfolio.getTemplateId());
         return PortfolioResponse.from(portfolio, colors[0], colors[1]);
     }
@@ -147,18 +168,29 @@ public class PortfolioService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Portfolio", "slug", slug));
 
+        // Return 404 instead of 403 — do not reveal portfolio exists
         if (!portfolio.getUserId().equals(UUID.fromString(userId))) {
             throw new ResourceNotFoundException("Portfolio", "slug", slug);
         }
+
         String[] colors = resolveTemplateColors(portfolio.getTemplateId());
         return PortfolioResponse.from(portfolio, colors[0], colors[1]);
     }
 
+    @Transactional(readOnly = true)
+    public int countUserPortfolios(UUID userId) {
+        return (int) portfolioRepository.countByUserId(userId);
+    }
+
+    // ─── Update ───────────────────────────────────────────────────────
+
     @Transactional
-    public PortfolioResponse update(
-            String userId,
-            UUID portfolioId,
-            UpdatePortfolioRequest request) {
+    public PortfolioResponse update(String userId, UUID portfolioId,
+                                    UpdatePortfolioRequest request) {
+        AppLogContext.info(CLASS, "update",
+                "Updating portfolio",
+                "portfolioId", portfolioId,
+                "userId", userId);
 
         Portfolio portfolio = portfolioRepository
                 .findByIdAndUserId(portfolioId, UUID.fromString(userId))
@@ -168,23 +200,31 @@ public class PortfolioService {
         if (request.getName() != null) {
             portfolio.setName(SanitizationUtil.sanitize(request.getName()));
         }
+
         if (request.getSlug() != null && !request.getSlug().isBlank()) {
             if (!request.getSlug().equals(portfolio.getSlug())) {
-                boolean slugExists = portfolioRepository
+                boolean slugTaken = portfolioRepository
                         .existsBySlugAndIdNot(request.getSlug(), portfolioId);
-                if (!slugExists) {
+                if (!slugTaken) {
                     portfolio.setSlug(request.getSlug());
                 }
             }
         }
+
         if (request.getTemplateId() != null) {
+            // Feature gate: premium template on update
+            userRepository.findById(UUID.fromString(userId)).ifPresent(user -> {
+                boolean isPremium = templateService
+                        .isTemplatePremium(request.getTemplateId());
+                featureGateService.checkPremiumTemplate(user, isPremium);
+            });
             portfolio.setTemplateId(request.getTemplateId());
-            // ← Update slug when template changes
             portfolio.setTemplateSlug(
                     resolveTemplateSlug(request.getTemplateId()));
         }
+
         if (request.getProfile() != null) {
-            // Delete old profile photo from Cloudinary if changing
+            // Delete old Cloudinary photo if profile photo is being changed
             String oldPublicId = portfolio.getProfilePhotoPublicId();
             if (oldPublicId != null
                     && request.getProfile().getProfilePhoto() != null
@@ -194,9 +234,17 @@ public class PortfolioService {
             }
             portfolio.setProfile(buildProfile(request.getProfile()));
         }
+
         if (request.getSettings() != null) {
+            // Feature gate: custom domain requires PREMIUM or PRO
+            if (request.getSettings().getCustomDomain() != null
+                    && !request.getSettings().getCustomDomain().isBlank()) {
+                userRepository.findById(UUID.fromString(userId))
+                        .ifPresent(featureGateService::checkCustomDomain);
+            }
             portfolio.setSettings(buildSettings(request.getSettings()));
         }
+
         if (request.getSkills() != null) {
             portfolio.setSkills(buildSkills(request.getSkills()));
         }
@@ -225,16 +273,18 @@ public class PortfolioService {
         }
 
         Portfolio updated = portfolioRepository.saveAndFlush(portfolio);
-        log.info("Portfolio updated: {}", updated.getSlug());
+
+        AppLogContext.info(CLASS, "update",
+                "Portfolio updated",
+                "portfolioId", portfolioId,
+                "slug", updated.getSlug());
+
         return PortfolioResponse.from(updated);
     }
 
     @Transactional
-    public PortfolioResponse updateStatus(
-            String userId,
-            UUID portfolioId,
-            PortfolioStatusRequest request) {
-
+    public PortfolioResponse updateStatus(String userId, UUID portfolioId,
+                                          PortfolioStatusRequest request) {
         UUID userUUID = UUID.fromString(userId);
 
         Portfolio portfolio = portfolioRepository
@@ -245,15 +295,16 @@ public class PortfolioService {
         if (request.getStatus() == PortfolioStatus.PUBLISHED) {
             long publishedCount = portfolioRepository
                     .countByUserIdAndStatus(userUUID, PortfolioStatus.PUBLISHED);
-
             boolean isCurrentlyPublished =
                     portfolio.getStatus() == PortfolioStatus.PUBLISHED;
 
+            // Feature gate: FREE users can publish only within portfolio limit
             if (publishedCount >= 1 && !isCurrentlyPublished) {
                 userRepository.findById(userUUID).ifPresent(user -> {
                     if (user.getPlan() == Plan.FREE) {
-                        throw new PlanUpgradeRequiredException(
-                                "Upgrade to Premium to publish unlimited portfolios");
+                        int count = (int) portfolioRepository
+                                .countByUserId(userUUID);
+                        featureGateService.checkPortfolioLimit(user, count);
                     }
                 });
             }
@@ -261,10 +312,17 @@ public class PortfolioService {
 
         portfolio.setStatus(request.getStatus());
         Portfolio updated = portfolioRepository.saveAndFlush(portfolio);
-        log.info("Portfolio status updated: {} → {}",
-                updated.getSlug(), request.getStatus());
+
+        AppLogContext.info(CLASS, "updateStatus",
+                "Portfolio status updated",
+                "portfolioId", portfolioId,
+                "slug", updated.getSlug(),
+                "status", request.getStatus());
+
         return PortfolioResponse.from(updated);
     }
+
+    // ─── Delete ───────────────────────────────────────────────────────
 
     @Transactional
     public void delete(String userId, UUID portfolioId) {
@@ -272,52 +330,45 @@ public class PortfolioService {
                 .findByIdAndUserId(portfolioId, UUID.fromString(userId))
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Portfolio", "id", portfolioId));
+
         portfolioRepository.delete(portfolio);
-        log.info("Portfolio deleted: {}", portfolio.getSlug());
+
+        AppLogContext.info(CLASS, "delete",
+                "Portfolio deleted",
+                "portfolioId", portfolioId,
+                "slug", portfolio.getSlug(),
+                "userId", userId);
     }
+
+    // ─── Duplicate ────────────────────────────────────────────────────
 
     @Transactional
     public PortfolioResponse duplicate(String userId, UUID portfolioId) {
         UUID userUUID = UUID.fromString(userId);
+
         Portfolio original = portfolioRepository
                 .findByIdAndUserId(portfolioId, userUUID)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Portfolio", "id", portfolioId));
 
-        String baseSlug = original.getSlug() + "-copy";
-        List<String> existingSlugs = portfolioRepository
-                .findSlugsByPrefix(baseSlug);
-        String newSlug = SlugUtil.nextAvailableSlug(baseSlug, existingSlugs);
+        // Feature gate: check limit before creating another portfolio
+        userRepository.findById(userUUID).ifPresent(user -> {
+            int count = (int) portfolioRepository.countByUserId(userUUID);
+            featureGateService.checkPortfolioLimit(user, count);
+        });
 
-        PortfolioProfile originalProfile = original.getProfile();
-        PortfolioProfile copiedProfile = new PortfolioProfile();
-        copiedProfile.setName(originalProfile.getName());
-        copiedProfile.setTitle(originalProfile.getTitle());
-        copiedProfile.setBio(originalProfile.getBio());
-        copiedProfile.setEmail(originalProfile.getEmail());
-        copiedProfile.setPhone(originalProfile.getPhone());
-        copiedProfile.setLocation(originalProfile.getLocation());
-        copiedProfile.setWebsite(originalProfile.getWebsite());
-        copiedProfile.setProfilePhoto(originalProfile.getProfilePhoto());
-        copiedProfile.setStatus(originalProfile.getStatus());
-        copiedProfile.setSocialMedia(new ArrayList<>(
-                originalProfile.getSocialMedia()));
+        String newSlug = SlugUtil.nextAvailableSlug(
+                original.getSlug() + "-copy",
+                portfolioRepository.findSlugsByPrefix(
+                        original.getSlug() + "-copy"));
 
-        PortfolioSettings originalSettings = original.getSettings();
-        PortfolioSettings copiedSettings = PortfolioSettings.builder()
-                .isPublic(originalSettings.getIsPublic())
-                .allowComments(originalSettings.getAllowComments())
-                .showContactInfo(originalSettings.getShowContactInfo())
-                .showSkillLevels(originalSettings.getShowSkillLevels())
-                .customDomain(originalSettings.getCustomDomain())
-                .seoTitle(originalSettings.getSeoTitle())
-                .seoDescription(originalSettings.getSeoDescription())
-                .build();
+        PortfolioProfile copiedProfile = copyProfile(original.getProfile());
+        PortfolioSettings copiedSettings = copySettings(original.getSettings());
 
         Portfolio duplicate = Portfolio.builder()
                 .userId(userUUID)
                 .templateId(original.getTemplateId())
-                .templateSlug(original.getTemplateSlug())   // ← add
+                .templateSlug(original.getTemplateSlug())
                 .name(original.getName() + " (Copy)")
                 .slug(newSlug)
                 .status(PortfolioStatus.DRAFT)
@@ -329,12 +380,17 @@ public class PortfolioService {
                 .build();
 
         Portfolio saved = portfolioRepository.saveAndFlush(duplicate);
-        log.info("Portfolio duplicated: {} → {}",
-                original.getSlug(), saved.getSlug());
+
+        AppLogContext.info(CLASS, "duplicate",
+                "Portfolio duplicated",
+                "originalId", portfolioId,
+                "newId", saved.getId(),
+                "newSlug", saved.getSlug());
+
         return PortfolioResponse.from(saved);
     }
 
-    // ─── Public Operations ───────────────────────────────────────────
+    // ─── Public Endpoints ─────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public PageResponse<PortfolioResponse> getPublicPortfolios(
@@ -356,8 +412,7 @@ public class PortfolioService {
                         .toList(),
                 result.getTotalElements(),
                 page,
-                limit
-        );
+                limit);
     }
 
     @Transactional(readOnly = true)
@@ -367,6 +422,7 @@ public class PortfolioService {
                         slug, PortfolioStatus.PUBLISHED, true)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Portfolio", "slug", slug));
+
         String[] colors = resolveTemplateColors(portfolio.getTemplateId());
         return PortfolioResponse.from(portfolio, colors[0], colors[1]);
     }
@@ -379,8 +435,7 @@ public class PortfolioService {
 
         return new SlugValidationResponse(
                 !exists,
-                exists ? "This slug is already taken" : "Slug is available"
-        );
+                exists ? "This slug is already taken" : "Slug is available");
     }
 
     // ─── Profile Photo ────────────────────────────────────────────────
@@ -404,7 +459,7 @@ public class PortfolioService {
                     "Only image files are allowed (JPG, PNG, WebP, GIF)");
         }
 
-        // Delete old photo from Cloudinary if exists
+        // Delete existing Cloudinary asset before uploading new one
         if (portfolio.getProfilePhotoPublicId() != null) {
             storageService.delete(portfolio.getProfilePhotoPublicId());
         }
@@ -415,7 +470,11 @@ public class PortfolioService {
         portfolio.setProfilePhotoPublicId(result.publicId());
         portfolioRepository.save(portfolio);
 
-        log.info("Profile photo uploaded for portfolio: {}", portfolioId);
+        AppLogContext.info(CLASS, "uploadProfilePhoto",
+                "Profile photo uploaded",
+                "portfolioId", portfolioId,
+                "url", result.url());
+
         return result.url();
     }
 
@@ -431,12 +490,18 @@ public class PortfolioService {
             portfolio.getProfile().setProfilePhoto(null);
             portfolio.setProfilePhotoPublicId(null);
             portfolioRepository.save(portfolio);
-        }
 
-        log.info("Profile photo deleted for portfolio: {}", portfolioId);
+            AppLogContext.info(CLASS, "deleteProfilePhoto",
+                    "Profile photo deleted",
+                    "portfolioId", portfolioId);
+        } else {
+            AppLogContext.warn(CLASS, "deleteProfilePhoto",
+                    "No profile photo to delete",
+                    "portfolioId", portfolioId);
+        }
     }
 
-    // ─── Private helper ───────────────────────────────────────────────
+    // ─── Private Helpers ──────────────────────────────────────────────
 
     private PortfolioProfile buildProfile(
             CreatePortfolioRequest.ProfileRequest req) {
@@ -505,12 +570,12 @@ public class PortfolioService {
                 .map(c -> Certification.builder()
                         .name(c.getName())
                         .provider(c.getProvider())
-                        .issueDate(c.getIssueDate() != null && !c.getIssueDate().isBlank()
-                                ? LocalDate.parse(c.getIssueDate())
-                                : null)
-                        .expiryDate(c.getExpiryDate() != null && !c.getExpiryDate().isBlank()
-                                ? LocalDate.parse(c.getExpiryDate())
-                                : null)
+                        .issueDate(c.getIssueDate() != null
+                                && !c.getIssueDate().isBlank()
+                                ? LocalDate.parse(c.getIssueDate()) : null)
+                        .expiryDate(c.getExpiryDate() != null
+                                && !c.getExpiryDate().isBlank()
+                                ? LocalDate.parse(c.getExpiryDate()) : null)
                         .credentialId(c.getCredentialId())
                         .credentialUrl(c.getCredentialUrl())
                         .build())
@@ -526,12 +591,12 @@ public class PortfolioService {
                     .title(e.getTitle())
                     .company(e.getCompany())
                     .location(e.getLocation())
-                    .startDate(e.getStartDate() != null && !e.getStartDate().isBlank()
-                            ? LocalDate.parse(e.getStartDate())
-                            : null)
-                    .endDate(e.getEndDate() != null && !e.getEndDate().isBlank()
-                            ? LocalDate.parse(e.getEndDate())
-                            : null)
+                    .startDate(e.getStartDate() != null
+                            && !e.getStartDate().isBlank()
+                            ? LocalDate.parse(e.getStartDate()) : null)
+                    .endDate(e.getEndDate() != null
+                            && !e.getEndDate().isBlank()
+                            ? LocalDate.parse(e.getEndDate()) : null)
                     .isCurrent(e.getIsCurrent() != null
                             ? e.getIsCurrent() : false)
                     .description(e.getDescription())
@@ -556,7 +621,8 @@ public class PortfolioService {
                     .field(e.getField())
                     .startDate(e.getStartDate())
                     .endDate(e.getEndDate())
-                    .isCurrent(e.getIsCurrent() != null ? e.getIsCurrent() : false)
+                    .isCurrent(e.getIsCurrent() != null
+                            ? e.getIsCurrent() : false)
                     .grade(e.getGrade())
                     .description(e.getDescription())
                     .sortOrder(i)
@@ -578,13 +644,48 @@ public class PortfolioService {
                     .githubUrl(p.getGithubUrl())
                     .isFeatured(p.getIsFeatured() != null
                             ? p.getIsFeatured() : false)
-                    .completedDate(p.getCompletedDate() != null && !p.getCompletedDate().isBlank()
-                            ? LocalDate.parse(p.getCompletedDate())
-                            : null)
+                    .completedDate(p.getCompletedDate() != null
+                            && !p.getCompletedDate().isBlank()
+                            ? LocalDate.parse(p.getCompletedDate()) : null)
                     .technologies(new ArrayList<>(p.getTechnologies()))
                     .build();
             portfolio.getProjects().add(proj);
         });
+    }
+
+    /**
+     * Copies profile fields for portfolio duplication.
+     * Intentionally copies by value — duplicate starts independent of original.
+     */
+    private PortfolioProfile copyProfile(PortfolioProfile src) {
+        PortfolioProfile copy = new PortfolioProfile();
+        copy.setName(src.getName());
+        copy.setTitle(src.getTitle());
+        copy.setBio(src.getBio());
+        copy.setEmail(src.getEmail());
+        copy.setPhone(src.getPhone());
+        copy.setLocation(src.getLocation());
+        copy.setWebsite(src.getWebsite());
+        copy.setProfilePhoto(src.getProfilePhoto());
+        copy.setStatus(src.getStatus());
+        copy.setSocialMedia(new ArrayList<>(src.getSocialMedia()));
+        return copy;
+    }
+
+    /**
+     * Copies settings for portfolio duplication.
+     * customDomain is intentionally NOT copied — each portfolio needs its own.
+     */
+    private PortfolioSettings copySettings(PortfolioSettings src) {
+        return PortfolioSettings.builder()
+                .isPublic(src.getIsPublic())
+                .allowComments(src.getAllowComments())
+                .showContactInfo(src.getShowContactInfo())
+                .showSkillLevels(src.getShowSkillLevels())
+                .customDomain(null)              // each portfolio has its own domain
+                .seoTitle(src.getSeoTitle())
+                .seoDescription(src.getSeoDescription())
+                .build();
     }
 
     private String resolveTemplateSlug(UUID templateId) {
@@ -592,16 +693,15 @@ public class PortfolioService {
         return templateService.getTemplateSlug(templateId);
     }
 
+    private String[] resolveTemplateColors(UUID templateId) {
+        return templateService.getTemplateColors(templateId);
+    }
+
     private boolean isImageType(String mimeType) {
         return mimeType != null && (
                 mimeType.equals("image/jpeg") ||
                         mimeType.equals("image/png") ||
                         mimeType.equals("image/webp") ||
-                        mimeType.equals("image/gif")
-        );
-    }
-
-    private String[] resolveTemplateColors(UUID templateId) {
-        return templateService.getTemplateColors(templateId);
+                        mimeType.equals("image/gif"));
     }
 }

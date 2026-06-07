@@ -6,8 +6,9 @@ public interface StorageService {
 
     /**
      * Upload a file to cloud storage.
-     * @param file     the multipart file to upload
-     * @param folder   the logical folder (PROFILES, RESUMES, THUMBNAILS)
+     *
+     * @param file   the multipart file to upload
+     * @param folder the logical folder (PROFILES, RESUMES, THUMBNAILS)
      * @return StorageResult containing publicId, url, fileSize
      */
     StorageResult upload(MultipartFile file, StorageFolder folder);
@@ -24,4 +25,6 @@ public interface StorageService {
      * Silently ignores if publicId is null or not found.
      */
     void delete(String publicId);
+
+
 }

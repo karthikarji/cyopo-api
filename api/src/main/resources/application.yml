@@ -28,6 +28,18 @@ app:
   scheduler:
     weekly-digest-cron: "0 0 8 * * MON"
     coupon-expiry-cron: "0 0 * * * *"
+  billing:
+    seller-gstin: ""   # add later when you have GSTIN
+    razorpay:
+      key-id: ${RAZORPAY_KEY_ID:rzp_test_SvduXyrbdlcumu}
+      key-secret: ${RAZORPAY_KEY_SECRET:yoursecret}
+      webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:https://placard-purgatory-brutishly.ngrok-free.dev}
+    scheduler:
+      billing-order-expire-cron: "0 */15 * * * *"
+      billing-expiry-cron: "0 0 0 * * *"
+      billing-reconcile-cron: "0 0 */6 * * *"
+      billing-renewal-retry-cron: "0 0 9 * * *"
+      billing-ip-masking-cron: "0 0 2 * * *"
 server:
   port: 8080
 
@@ -37,7 +49,7 @@ jwt:
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:dnxfschao}
-  api-key:    ${CLOUDINARY_API_KEY}
+  api-key: ${CLOUDINARY_API_KEY}
   api-secret: ${CLOUDINARY_API_SECRET}
 
 logging:

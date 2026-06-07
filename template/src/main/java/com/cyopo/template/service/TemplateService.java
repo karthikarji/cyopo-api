@@ -244,7 +244,7 @@ public class TemplateService {
     private boolean isImageType(String mimeType) {
         return mimeType != null && (
                 mimeType.equals("image/jpeg") ||
-                        mimeType.equals("image/png")  ||
+                        mimeType.equals("image/png") ||
                         mimeType.equals("image/webp") ||
                         mimeType.equals("image/gif")
         );
@@ -265,9 +265,15 @@ public class TemplateService {
     }
 
     public String[] getTemplateColors(UUID templateId) {
-        if (templateId == null) return new String[]{ "#111827", "#8b5cf6" };
+        if (templateId == null) return new String[]{"#111827", "#8b5cf6"};
         return templateRepository.findById(templateId)
-                .map(t -> new String[]{ t.getPrimaryColor(), t.getSecondaryColor() })
-                .orElse(new String[]{ "#111827", "#8b5cf6" });
+                .map(t -> new String[]{t.getPrimaryColor(), t.getSecondaryColor()})
+                .orElse(new String[]{"#111827", "#8b5cf6"});
+    }
+
+    public boolean isTemplatePremium(UUID templateId) {
+        return templateRepository.findById(templateId)
+                .map(t -> t.getPremium() != null && t.getPremium())
+                .orElse(false);
     }
 }

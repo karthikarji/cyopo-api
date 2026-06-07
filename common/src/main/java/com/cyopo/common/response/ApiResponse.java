@@ -38,4 +38,8 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> error(String error) {
         return new ApiResponse<>(false, null, null, error);
     }
+
+    public static <T> ApiResponse<T> error(String error, T data) {
+        return new ApiResponse<>(false, null, data, error);
+    }
 }
