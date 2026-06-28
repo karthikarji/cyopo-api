@@ -1,0 +1,130 @@
+# =============================================================================
+# cyopo — eksctl reference (DOCUMENTATION / "what the console clicks equal")
+# =============================================================================
+#
+# This file reproduces the EKS cluster you built BY HAND in the AWS Console
+# during Step 4. It is a LEARNING REFERENCE — you are NOT meant to apply it,
+# because the cluster it describes already exists. It exists so you can see how
+# each console action maps to one block of declarative config.
+#
+# If you ever DID want to build from it (e.g. a fresh environment), the command
+# would be:
+#     eksctl create cluster -f eksctl-cluster.yaml
+# and to tear down everything it created:
+#     eksctl delete cluster -f eksctl-cluster.yaml
+#
+# IMPORTANT: eksctl would create its OWN new VPC from the `vpc` block below.
+# Your hand-built cluster instead used the VPC you made with the "VPC and more"
+# wizard. To make eksctl REUSE that existing VPC, you would replace the `vpc`
+# block with a `vpc: { id: vpc-0bd1094e057481cd7, subnets: {...} }` block listing
+# your subnet IDs. The version below shows the "let eksctl build the VPC" form,
+# which is the more common real-world usage and the easier one to learn from.
+# =============================================================================
+
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+# -----------------------------------------------------------------------------
+# CONSOLE EQUIVALENT: Step 1 "Configure cluster" — Name, Kubernetes version,
+# region selector (top-right = Mumbai).
+# -----------------------------------------------------------------------------
+metadata:
+  name: cyopo-cluster
+  region: ap-south-1          # Mumbai — chosen for latency to you + Razorpay
+  version: "1.35"             # = the "Kubernetes version" dropdown (newest)
+
+# -----------------------------------------------------------------------------
+# CONSOLE EQUIVALENT: the VPC wizard ("VPC and more") + the manual subnet tags.
+#
+# When eksctl builds the VPC itself, it AUTOMATICALLY adds the
+# kubernetes.io/role/elb and kubernetes.io/role/internal-elb subnet tags that
+# you had to add by hand in the console (the step that, if missed, breaks load
+# balancers later). This is the single biggest convenience of eksctl over the
+# console: the error-prone tagging is done for you.
+# -----------------------------------------------------------------------------
+vpc:
+  cidr: "10.0.0.0/16"         # = the IPv4 CIDR you typed in the VPC wizard
+  nat:
+    gateway: Single           # = "NAT gateways: In 1 AZ" (cost-optimized; ~$32/mo)
+    #   (HighlyAvailable = "1 per AZ" = ~2x cost)
+  clusterEndpoints:
+    publicAccess: true        # = endpoint access "Public and private"
+    privateAccess: true       #   (lets you reach the API from your laptop, while
+    #    node<->control-plane traffic stays in the VPC)
+
+# eksctl spreads subnets across these AZs automatically (one public + one private
+# per AZ). CONSOLE EQUIVALENT: "Number of Availability Zones: 2" in the wizard,
+# which produced your public1/public2/private1/private2 subnets.
+availabilityZones:
+  - ap-south-1a
+  - ap-south-1b
+
+# -----------------------------------------------------------------------------
+# CONSOLE EQUIVALENT: Step 4 "Select add-ons" screen.
+# These are the core add-ons. (Your console build also added Metrics Server and
+# the Node monitoring agent; you can add those here too if desired — see note.)
+# -----------------------------------------------------------------------------
+addons:
+  - name: vpc-cni             # pod networking / IP assignment
+  - name: coredns             # in-cluster DNS
+  - name: kube-proxy          # in-cluster network routing
+  - name: eks-pod-identity-agent  # lets pods assume IAM roles (modern way)
+  # - name: metrics-server    # (optional; you enabled this in the console)
+  # NOTE: "Node monitoring agent" and "Metrics Server" are also installable as
+  # addons; left commented to keep this reference focused on the core four.
+
+# -----------------------------------------------------------------------------
+# CONSOLE EQUIVALENT: "Allow cluster administrator access" + EKS API auth mode.
+# This grants the IAM identity that creates the cluster (your cyopo-admin user)
+# Kubernetes admin rights — so kubectl works for you immediately.
+# -----------------------------------------------------------------------------
+accessConfig:
+  authenticationMode: API     # = "Cluster authentication mode: EKS API"
+  # bootstrapClusterCreatorAdminPermissions defaults to true = "Allow cluster
+  # administrator access" for the creating principal.
+
+# -----------------------------------------------------------------------------
+# CONSOLE EQUIVALENT: the entire "Add node group" flow (Step 4.5), including the
+# AMI type, instance type, capacity, scaling, the node IAM role, and — crucially
+# — placing nodes in PRIVATE subnets (the thing that failed on your first try
+# when a public subnet got selected).
+# -----------------------------------------------------------------------------
+managedNodeGroups:
+  - name: cyopo-nodes
+    amiFamily: AmazonLinux2023   # = "Amazon Linux 2023 ... Standard"
+    instanceType: t4g.medium     # t4g = Graviton/arm64 (matches your image)
+    # amiFamily + a t4g instance => eksctl selects the ARM_64 AMI automatically.
+    # CONSOLE EQUIVALENT: choosing AL2023_ARM_64_STANDARD explicitly.
+
+    spot: false                  # = "Capacity type: On-Demand"
+
+    desiredCapacity: 2           # = Scaling "Desired size: 2"
+    minSize: 2                   # = "Minimum size: 2"  (keeps both AZs covered)
+    maxSize: 3                   # = "Maximum size: 3"  (a little headroom)
+
+    volumeSize: 20               # = "Disk size: 20 GB"
+
+    privateNetworking: true      # ****THE KEY LINE**** = selecting ONLY the two
+      # PRIVATE subnets in the console. This forces
+      # nodes into private subnets. Setting this is the
+    # declarative cure for the Ec2SubnetInvalidConfig
+    # error you hit when a public subnet was picked.
+
+    # CONSOLE EQUIVALENT: choosing the existing `cyopo-eks-node-role`.
+    # (If omitted, eksctl creates a node role for you with the same 3 policies:
+    #  AmazonEKSWorkerNodePolicy, AmazonEC2ContainerRegistryReadOnly,
+    #  AmazonEKS_CNI_Policy.) To reuse YOUR role instead, uncomment:
+    # iam:
+    #   instanceRoleARN: arn:aws:iam::423623871239:role/cyopo-eks-node-role
+
+    disableIMDSv1: true          # security best practice (no equivalent toggle in
+    # the basic console flow; sensible default)
+
+# -----------------------------------------------------------------------------
+# NOT REPRESENTED HERE (because they were separate console steps or come later):
+#   - The cluster IAM role (cyopo-eks-cluster-role): eksctl would create its own
+#     cluster role automatically; you made yours by hand in Step 4.2.
+#   - ECR repository (Step 3) — a separate resource, not part of cluster config.
+#   - NGINX Ingress / cert-manager (Step 5) — installed via Helm AFTER the
+#     cluster exists, not via eksctl.
+# =============================================================================

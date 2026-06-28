@@ -3,15 +3,27 @@ package com.cyopo.template.dto.request;
 import com.cyopo.template.model.TemplateStatus;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.List;
 
 @Getter
+@Setter
+@NoArgsConstructor
 public class CreateTemplateRequest {
 
     @NotBlank(message = "Title is required")
     @Size(max = 100, message = "Title cannot exceed 100 characters")
     private String title;
+
+    @NotBlank(message = "Slug is required")
+    @Pattern(
+            regexp = "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            message = "Slug must be lowercase letters, numbers and hyphens only"
+    )
+    @Size(max = 100, message = "Slug cannot exceed 100 characters")
+    private String slug;
 
     @NotBlank(message = "Description is required")
     @Size(max = 1000, message = "Description cannot exceed 1000 characters")

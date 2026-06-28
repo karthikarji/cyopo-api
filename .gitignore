@@ -1,8 +1,10 @@
 # Maven
 target/
+**/target/
 *.jar
 *.war
 *.ear
+.git
 
 # IntelliJ
 .idea/
@@ -27,4 +29,5 @@ application-prod.yml
 logs/
 
 # Spring Boot
-spring-pid
+spring-pidk8s/.dev-secrets.env
+k8s/.prod-secrets.env

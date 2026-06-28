@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cyopo-api-ingress
+  namespace: cyopo-dev
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "15m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api-dev.cyopo.com
+      secretName: cyopo-api-tls
+  rules:
+    - host: api-dev.cyopo.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: cyopo-api
+                port:
+                  number: 80

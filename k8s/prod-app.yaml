@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cyopo-api
+  namespace: cyopo-prod
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cyopo-api
+  template:
+    metadata:
+      labels:
+        app: cyopo-api
+    spec:
+      containers:
+        - name: cyopo-api
+          image: 423623871239.dkr.ecr.ap-south-1.amazonaws.com/cyopo-api:v4
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: cyopo-config
+            - secretRef:
+                name: cyopo-secrets
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          startupProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+            initialDelaySeconds: 60
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cyopo-api
+  namespace: cyopo-prod
+spec:
+  selector:
+    app: cyopo-api
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: ClusterIP

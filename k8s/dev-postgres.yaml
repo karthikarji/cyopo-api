@@ -1,0 +1,78 @@
+# --- Persistent storage (durable disk, survives pod restarts) ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: cyopo-dev
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+# --- Secret (database credentials) ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: cyopo-dev
+type: Opaque
+stringData:
+  POSTGRES_DB: cyopo_db
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: cyopodev2904
+---
+# --- Deployment (the running Postgres 17 container) ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: cyopo-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17
+          ports:
+            - containerPort: 5432
+          # --- PGDATA = standard data dir; volume is mounted ONE LEVEL UP ---
+          # --- (at /var/lib/postgresql) so 'data/' is a clean subdirectory. ---
+          # --- This keeps data + lock file (postmaster.pid) together and    ---
+          # --- avoids both the lost+found init error AND the lock-file       ---
+          # --- shutdown loop caused by mounting at the data dir directly.    ---
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data
+          envFrom:
+            - secretRef:
+                name: postgres-secret
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql        # <-- mounted one level up
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+---
+# --- Service (stable internal address: "postgres") ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: cyopo-dev
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None

@@ -54,17 +54,13 @@ public class AdminTemplateController {
             @Valid @ModelAttribute CreateTemplateRequest request,
             @RequestParam("thumbnail") MultipartFile thumbnail) {
 
-        // Step 1 — create template (no thumbnail yet)
-        TemplateResponse response = templateService.create(request);
-
-        // Step 2 — upload thumbnail immediately
-        TemplateResponse withThumbnail = templateService.uploadThumbnail(
-                response.getId(), thumbnail);
+        // Upload thumbnail + insert template
+        TemplateResponse response = templateService.create(request, thumbnail);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success(
-                        "Template created successfully", withThumbnail));
+                        "Template created successfully", response));
     }
 
     @PostMapping(value = "/{id}/thumbnail",

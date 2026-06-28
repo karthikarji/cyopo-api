@@ -38,6 +38,8 @@ sentry:
   dsn: ${SENTRY_DSN:}
   traces-sample-rate: 1.0
   environment: dev
+  logs.enabled: true
+
 
 logging:
   level:

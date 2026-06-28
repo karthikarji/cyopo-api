@@ -7,6 +7,7 @@ import com.cyopo.common.response.PageResponse;
 import com.cyopo.common.storage.StorageFolder;
 import com.cyopo.common.storage.StorageResult;
 import com.cyopo.common.storage.StorageService;
+import com.cyopo.common.util.SlugUtil;
 import com.cyopo.template.dto.request.CreateTemplateRequest;
 import com.cyopo.template.dto.request.UpdateTemplateRequest;
 import com.cyopo.template.dto.response.TemplateResponse;
@@ -40,15 +41,35 @@ public class TemplateService {
     // ─── Admin Use Cases ────────────────────────────────────────────
 
     @Transactional
-    public TemplateResponse create(CreateTemplateRequest request) {
+    public TemplateResponse create(CreateTemplateRequest request,
+                                   MultipartFile thumbnail) {
         if (templateRepository.existsByTitle(
                 request.getTitle().toLowerCase())) {
             throw new ConflictException(
                     "A template with this title already exists");
         }
 
+        // Validate thumbnail before inserting — fail fast
+        if (thumbnail == null || thumbnail.isEmpty()) {
+            throw new BadRequestException("Thumbnail file is required");
+        }
+        if (thumbnail.getSize() > 3 * 1024 * 1024) {
+            throw new BadRequestException("File size exceeds 3MB limit");
+        }
+        if (!isImageType(thumbnail.getContentType())) {
+            throw new BadRequestException(
+                    "Only image files are allowed (JPG, PNG, WebP)");
+        }
+
+        // Upload thumbnail first — if Cloudinary fails,
+        // nothing is persisted (no orphaned template records)
+        StorageResult uploaded = storageService.upload(
+                thumbnail, StorageFolder.THUMBNAILS);
+
+
         Template template = Template.builder()
                 .title(request.getTitle().toLowerCase())
+                .slug(request.getSlug().toUpperCase())
                 .description(request.getDescription().toLowerCase())
                 .font(request.getFont())
                 .primaryColor(request.getPrimaryColor())
@@ -58,10 +79,12 @@ public class TemplateService {
                 .tags(new ArrayList<>(request.getTags().stream()
                         .map(String::toLowerCase)
                         .toList()))
+                .thumbnail(uploaded.url())
+                .thumbnailPublicId(uploaded.publicId())
                 .build();
 
         Template saved = templateRepository.saveAndFlush(template);
-        log.info("Template created: {}", saved.getTitle());
+        log.info("Template created with thumbnail: {}", saved.getTitle());
         return TemplateResponse.from(saved);
     }
 
